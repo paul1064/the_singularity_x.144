@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05060c">
+  <title>The Singularity x.144</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="world"></canvas>
+
+  <!-- Oberer Bereich -->
+  <header id="hud">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div class="universe" id="universeLabel">UNIVERSUM 144</div>
+        <div class="epoch" id="epochLabel">Ursuppe</div>
+      </div>
+      <button class="icon-btn" id="settingsBtn" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="3.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="amount"><span id="amount">0</span><span class="sym">✦</span></div>
+    <div class="rate" id="rate">+0 /s</div>
+  </header>
+
+  <!-- Zoom-Leiste: die 8 Größenordnungen -->
+  <nav id="rail" aria-label="Größenordnungen"></nav>
+
+  <!-- Die Stimme -->
+  <div id="voice" aria-live="polite"></div>
+
+  <!-- Unteres Panel -->
+  <section id="panel">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-tab="evo">Evolution</button>
+      <button class="tab" data-tab="time">Zeitlinie</button>
+      <button class="tab" data-tab="frag">Fragmente <span id="fragCount" class="pill">0</span></button>
+    </div>
+    <div class="tab-body" id="tab-evo">
+      <div id="leapCard"></div>
+      <div class="buy-mode" id="buyMode">
+        <button data-n="1" class="active">×1</button><button data-n="10">×10</button><button data-n="max">MAX</button>
+      </div>
+      <div id="genList"></div>
+    </div>
+    <div class="tab-body hidden" id="tab-time"><div id="timeline"></div></div>
+    <div class="tab-body hidden" id="tab-frag"><div id="fragList"></div></div>
+  </section>
+
+  <!-- Vollbild-Ebenen -->
+  <div id="overlay" class="hidden"></div>
+  <div id="modal" class="hidden"><div class="card" id="modalCard"></div></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
