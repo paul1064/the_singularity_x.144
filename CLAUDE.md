@@ -36,7 +36,7 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 
 ## Android-Build
 - Lokal: `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (braucht Android SDK 35, JDK 21).
-- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk`.
+- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v1.apk` (Bot-Commit „APK bauen [skip ci]").
 - Nach Änderungen an `www/` immer `npx cap sync android`. Icon/Splash: `python3 tools/make-assets.py && npx capacitor-assets generate --android`.
 - Zurück-Taste (in `main.js`): schließt offenes Fenster, sonst speichern + App minimieren.
 - Screenshots: `python3 tools/screens.py <ordner>` (Ergebnisse in `docs/screens/`).
