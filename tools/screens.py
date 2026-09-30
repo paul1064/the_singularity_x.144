@@ -1,5 +1,5 @@
 """Handy-Screenshots (390x844): Titel, Epoche 4, Epoche 7, Der Gedanke. Aufruf: python3 tools/screens.py <outdir>"""
-import json, os, sys, time, subprocess
+import glob, json, os, sys, time, subprocess
 from playwright.sync_api import sync_playwright
 
 out = sys.argv[1]; os.makedirs(out, exist_ok=True)
@@ -20,7 +20,7 @@ def state(epoch, finished=False):
             'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True}
 
 with sync_playwright() as p:
-    b = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH') or None)
+    b = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH') or (glob.glob('/opt/pw-browsers/chromium-*/chrome-linux*/chrome') or [None])[0])
     def shot(name, st, actions):
         ctx = b.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
         if st is not None:

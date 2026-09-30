@@ -155,3 +155,24 @@ export const INTENTS = [
 ];
 
 export const MILESTONES = [10, 25, 50, 100, 200];
+
+// ─── V2: Merkmale (Draft bei jedem Evolutionssprung: 1 aus 3) ──
+export const TRAITS = [
+  { id: 'schwarm',     name: 'Schwarmverhalten',       sub: 'Viele Hände, ein Wille.',          effect: 'Tippen +100 %, Produktion −10 %' },
+  { id: 'wuchern',     name: 'Wuchern',                sub: 'Was wächst, wächst weiter.',       effect: 'Produktion +25 %' },
+  { id: 'sparsam',     name: 'Sparsamer Stoffwechsel', sub: 'Nichts wird verschwendet.',        effect: 'Generatoren −15 % Kosten' },
+  { id: 'zaeh',        name: 'Zähes Leben',            sub: 'Was nicht tötet …',                effect: 'Kataklysmen-Verluste halbiert' },
+  { id: 'mutant',      name: 'Mutationsfreudig',       sub: 'Die DNA kann nicht stillhalten.',  effect: 'Mutationen erscheinen doppelt so oft und bleiben länger' },
+  { id: 'glueck',      name: 'Glückskind',             sub: 'Zufall hat Lieblinge.',            effect: 'Mutationen wirken 50 % stärker' },
+  { id: 'gleichklang', name: 'Gleichklang',            sub: 'Im Takt denken.',                  effect: 'Resonanz baut sich doppelt so schnell auf und erreicht ×3' },
+  { id: 'traeumer',    name: 'Träumer',                sub: 'Im Schlaf wächst es weiter.',      effect: 'Offline-Ertrag +60 %, Tippen −20 %' },
+  { id: 'erbe',        name: 'Erbgut',                 sub: 'Die Ahnen haben vorgearbeitet.',   effect: 'Evolutionssprünge −20 % Kosten' },
+  { id: 'vorhut',      name: 'Vorhut',                 sub: 'Wer vorangeht, führt.',            effect: 'Generatoren der aktuellen Epoche ×2' },
+];
+
+// ─── V2: Mutationen (leuchtende Glimmer, antippen) ─────────────
+export const MUTATIONS = [
+  { id: 'schub',   name: 'Schub',   w: 4, kind: 'prod', mult: 4, dur: 25, text: 'Produktion ×4 für 25 s' },
+  { id: 'raserei', name: 'Raserei', w: 3, kind: 'tap',  mult: 6, dur: 20, text: 'Tippen ×6 für 20 s' },
+  { id: 'ernte',   name: 'Ernte',   w: 3, kind: 'gain', secs: 90,           text: 'Sofort 90 s Produktion' },
+];

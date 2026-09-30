@@ -12,6 +12,8 @@ export const TUNING = {
   leapFactor: 30,     // Sprungkosten = Faktor × Grundpreis des 3. Generators der Epoche
   tapShare: 0.06,     // Anteil der Produktion/s, den ein Tipp zusätzlich bringt
   offlineHours: 8,
+  resGain: 0.06,      // Resonanz-Zuwachs pro Tipp (0–1)
+  resDecay: 0.3,      // Resonanz-Verfall pro Sekunde
 };
 
 export function newState() {
@@ -37,6 +39,9 @@ export function newState() {
     lastSeen: Date.now(),
     settings: { music: true, sfx: true, vibrate: true },
     introSeen: false,
+    traits: [],             // V2: gewählte Merkmale (pro Durchlauf)
+    pendingTrait: null,     // V2: angebotene, noch nicht gewählte Merkmale
+    buffs: [],              // V2: aktive Mutations-Effekte {k, m, t}
   };
 }
 
@@ -46,9 +51,13 @@ export function baseCost(i) {
   return TUNING.costBase * Math.pow(TUNING.costTier, i);
 }
 
+export const hasTrait = (state, id) => state.traits.includes(id);
+export const buffMult = (state, k) => state.buffs.reduce((m, b) => (b.k === k ? m * b.m : m), 1);
+
 export function costMult(state, i) {
   const e = epochOf(i);
   let m = 1;
+  if (hasTrait(state, 'sparsam')) m *= 0.85;
   if (state.choices.oxygen === 'b' && (e === 2 || e === 3)) m *= 0.8;
   return m;
 }
@@ -70,6 +79,7 @@ export function leapCost(state, e) {
   let c = TUNING.leapFactor * baseCost(e * 3 + 2);
   if (e === 7) c *= 3;
   if (e === 7 && state.choices.button === 'b') c *= 0.7;
+  if (hasTrait(state, 'erbe')) c *= 0.8;
   return c;
 }
 
@@ -88,6 +98,9 @@ export function epochMult(state, e) {
   if (ch.asteroid === 'b' && (e === 3 || e === 4)) m *= 1.6;
   if (ch.volcano === 'b' && (e === 4 || e === 5)) m *= 1.5;
   if (ch.button === 'a' && e >= 6) m *= 1.5;
+  if (hasTrait(state, 'wuchern')) m *= 1.25;
+  if (hasTrait(state, 'schwarm')) m *= 0.9;
+  if (hasTrait(state, 'vorhut') && e === state.epoch) m *= 2;
   const k = state.constants;
   if (e <= 1) m *= 1 + 0.15 * k.g;
   if (e >= 2 && e <= 4) m *= 1 + 0.12 * k.em;
@@ -107,19 +120,32 @@ export function genProd(state, i) {
 export function prodPerSec(state) {
   let s = 0;
   for (let i = 0; i < GENERATORS.length; i++) if (state.owned[i]) s += genProd(state, i);
-  return s;
+  return s * buffMult(state, 'prod');
 }
 
 export function tapMult(state) {
   let m = 1 + 0.3 * state.constants.s;
   if (state.choices.volcano === 'a') m *= 3;
   if (state.intent === 'wille') m *= 2;
-  return m;
+  if (hasTrait(state, 'schwarm')) m *= 2;
+  if (hasTrait(state, 'traeumer')) m *= 0.8;
+  return m * buffMult(state, 'tap');
 }
 
-export function tapValue(state, pps = prodPerSec(state)) {
-  return (1 + pps * TUNING.tapShare) * tapMult(state) * globalMult(state);
+// Resonanz: schnelles Tippen (vor allem mit mehreren Fingern) lädt einen Tipp-Multiplikator auf
+export const resonanceMax = (state) => (hasTrait(state, 'gleichklang') ? 3 : 2);
+export const resonanceGain = (state) => TUNING.resGain * (hasTrait(state, 'gleichklang') ? 2 : 1);
+export const resonanceMult = (state, res) => 1 + (resonanceMax(state) - 1) * res;
+
+export function tapValue(state, pps = prodPerSec(state), res = 0) {
+  return (1 + pps * TUNING.tapShare) * tapMult(state) * globalMult(state) * resonanceMult(state, res);
 }
+
+// Mutationen: Häufigkeit, Lebensdauer, Stärke
+export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1);
+export const mutationLife = (state) => 9 * (hasTrait(state, 'mutant') ? 1.5 : 1);
+export const mutationPower = (state, m) => (hasTrait(state, 'glueck') ? 1 + (m - 1) * 1.5 : m);
+export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1);
 
 export function earn(state, amount) {
   state.complexity += amount;
@@ -128,7 +154,8 @@ export function earn(state, amount) {
 }
 
 export function catastropheLoss(state, frac) {
-  const f = state.intent === 'harmonie' ? frac / 2 : frac;
+  let f = state.intent === 'harmonie' ? frac / 2 : frac;
+  if (hasTrait(state, 'zaeh')) f /= 2;
   state.complexity *= (1 - f);
 }
 

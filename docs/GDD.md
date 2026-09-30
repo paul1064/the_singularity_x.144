@@ -85,6 +85,7 @@ Die letzte offene Frage des Spiels: **Wer hat das erste gedacht?**
 | 7 | **Die Stimme** — Begleiter vom Instinkt bis zum „Ich bin du" | **V1** |
 | 5 | **Das Geheimnis von x.144** — Fragmente zum Finden (Teaser) | **V1** |
 | 4 | **Schöpfer-Loop** — Singularität → Der Gedanke → neuer Urknall | **V1 (Grundform)** |
+| 14 | **Mutationen, Merkmale, Resonanz, Multi-Touch** — aktiveres Frühspiel | **V2.0** |
 | 6 | Relikte vergangener Läufe (Fossilien, Ruinen, Signale im neuen Universum) | V2 |
 | 8 | Mythologie — Zivilisationen erschaffen Götter aus deinen Eingriffen (Durchlauf 2+) | V2 |
 | 9 | Epochen-Momente — kurze aktive Mini-Szenen (erstes Feuer, Mondlandung) | V2 |

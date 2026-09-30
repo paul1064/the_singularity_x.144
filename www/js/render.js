@@ -38,6 +38,7 @@ export class World {
     this.flash = 0; this.flashColor = '#ffffff';
     this.shake = 0;
     this.glitch = null;
+    this.mutation = null;   // V2: leuchtender Mutations-Glimmer
     this.mode = 'play';   // play | void | converge | bang
     this.converge = 0;
     this.bang = null;
@@ -152,6 +153,18 @@ export class World {
     return hit;
   }
 
+  spawnMutation(life = 9) {
+    const m = 56;
+    this.mutation = { x: m + Math.random() * (this.w - 2 * m - 30), y: 170 + Math.random() * Math.max(40, this.h * 0.5 - 200), life, max: life };
+  }
+  hitMutation(x, y) {
+    const m = this.mutation;
+    if (!m || Math.hypot(x - m.x, y - m.y) > 52) return false;
+    this.burst(m.x, m.y, '#7cf29c', 36, 1.5);
+    this.mutation = null;
+    return true;
+  }
+
   // ── Schleife ─────────────────────────────────────────────────
   update(dt) {
     this.t += dt;
@@ -164,6 +177,7 @@ export class World {
     this.flash = Math.max(0, this.flash - dt * 0.9);
     this.shake = Math.max(0, this.shake - dt * 2);
     if (this.glitch) { this.glitch.life -= dt; if (this.glitch.life <= 0) this.glitch = null; }
+    if (this.mutation) { this.mutation.life -= dt; if (this.mutation.life <= 0) this.mutation = null; }
     if (this.bang) this.bang.t += dt;
   }
 
@@ -208,6 +222,7 @@ export class World {
     }
     g.globalAlpha = 1;
     if (this.glitch) this._drawGlitch();
+    if (this.mutation) this._drawMutation();
     if (this.flash > 0) {
       g.setTransform(d, 0, 0, d, 0, 0);
       g.globalAlpha = clamp(this.flash, 0, 1); g.fillStyle = this.flashColor;
@@ -562,6 +577,27 @@ export class World {
       const d = e * p.v * maxD;
       g.globalAlpha = clamp(1.4 - b.t * 0.22, 0, 1);
       g.fillStyle = p.c; g.beginPath(); g.arc(this.cx + Math.cos(p.a) * d, this.cy + Math.sin(p.a) * d, p.s, 0, TAU); g.fill();
+    }
+    g.restore();
+  }
+
+  // Doppelhelix in einem Ring, dessen Bogen die verbleibende Zeit zeigt
+  _drawMutation() {
+    const g = this.g, m = this.mutation, t = this.t, c = '#7cf29c';
+    const pulse = 1 + Math.sin(t * 5) * 0.08, x = m.x, y = m.y;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    this._halo(g, x, y, 46 * pulse, c, 0.4);
+    g.lineWidth = 2.5; g.lineCap = 'round';
+    g.strokeStyle = hexA(c, 0.25); g.beginPath(); g.arc(x, y, 30, 0, TAU); g.stroke();
+    g.strokeStyle = hexA(c, 0.9); g.beginPath(); g.arc(x, y, 30, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(m.life / m.max, 0, 1)); g.stroke();
+    g.lineWidth = 2;
+    for (const ph of [0, Math.PI]) {
+      g.strokeStyle = ph ? '#ffffff' : c; g.beginPath();
+      for (let k = -10; k <= 10; k++) {
+        const yy = y + k * 1.8, xx = x + Math.sin(k * 0.45 + t * 3 + ph) * 9;
+        k === -10 ? g.moveTo(xx, yy) : g.lineTo(xx, yy);
+      }
+      g.stroke();
     }
     g.restore();
   }

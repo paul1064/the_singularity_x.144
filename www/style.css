@@ -41,6 +41,17 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .amount .sym { color: var(--accent); margin-left: 6px; font-size: .7em; transition: color 1.5s; }
 .rate { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
+.reso { position: relative; display: flex; align-items: center; justify-content: center; width: 160px; height: 20px; margin: 6px auto 0; border-radius: 9px; background: rgba(255,255,255,0.07); border: 1px solid var(--line); overflow: hidden; opacity: 0; transition: opacity .3s; }
+.reso.on { opacity: 1; }
+.reso i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(255,255,255,0.12), var(--accent)); opacity: .85; }
+.reso span { position: relative; display: block; font-size: 10px; letter-spacing: .14em; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 0 6px rgba(0,0,0,.6); }
+.buffs { display: flex; justify-content: center; gap: 6px; margin-top: 6px; min-height: 0; }
+.buffs b { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 10px; color: #06120a; background: #7cf29c; box-shadow: 0 0 14px rgba(124,242,156,.5); font-variant-numeric: tabular-nums; }
+.traits-head { font-size: 10px; letter-spacing: .24em; color: var(--muted); font-weight: 700; margin: 6px 4px 8px; }
+.trait { padding: 9px 12px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 13px; }
+.trait b { display: block; font-size: 13.5px; color: #fff3b0; }
+.trait small { color: var(--muted); font-size: 12px; }
+
 /* ── Zoom-Leiste ─────────────────────── */
 #rail {
   position: fixed; right: 10px; top: calc(var(--safe-t) + 128px); bottom: calc(var(--panel-h) + 24px);

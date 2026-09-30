@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  THE SINGULARITY x.144 — Spielablauf & Oberfläche
 // ─────────────────────────────────────────────────────────────
-import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES } from './data.js';
+import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS } from './data.js';
 import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
@@ -22,6 +22,9 @@ let cinematic = false;      // Zwischensequenz läuft
 let nextGlitch = 60 + Math.random() * 60;
 let nextVoice = 25;
 let acc = 0;
+let res = 0;                // V2: Resonanz 0–1 (nicht gespeichert)
+let lastTapAt = 0;
+let nextMut = 18;           // V2: Sekunden bis zur nächsten Mutation (die erste kommt früh)
 
 // ── Speichern / Laden ─────────────────────────────────────────
 function load() {
@@ -162,13 +165,14 @@ function renderLeap() {
 
 function renderTimeline() {
   const box = $('timeline');
-  if (!S.timeline.length) { box.innerHTML = '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
+  const traitsHtml = S.traits.length ? `<div class="traits-head">MERKMALE</div>${S.traits.map((id) => { const t = TRAITS.find((x) => x.id === id); return `<div class="trait"><b>${t.name}</b><small>${t.effect}</small></div>`; }).join('')}<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>` : '';
+  if (!S.timeline.length) { box.innerHTML = traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
   let html = '', u = null;
   for (const t of S.timeline) {
     if (t.u !== u) { u = t.u; html += `<div class="tl-u">UNIVERSUM ${u}</div>`; }
     html += `<div class="tl ${t.kind === 'choice' ? 'choice' : ''}" style="--c:${t.c}">${t.text}</div>`;
   }
-  box.innerHTML = html;
+  box.innerHTML = traitsHtml + html;
   box.parentElement.scrollTop = box.parentElement.scrollHeight;
 }
 
@@ -239,7 +243,9 @@ async function doLeap() {
   await wait(2600);
   cinematic = false;
   const ev = EVENTS.find((x) => x.afterLeap === from);
-  if (ev && !S.choices[ev.id]) { S.pendingEvent = ev.id; save(); showEvent(ev); }
+  if (ev && !S.choices[ev.id]) { S.pendingEvent = ev.id; save(); }
+  // erst das Merkmal wählen, danach ggf. der Kataklysmus
+  offerTrait(() => { if (S.pendingEvent) { const pe = EVENTS.find((x) => x.id === S.pendingEvent); if (pe) showEvent(pe); } });
 }
 
 function checkInEpochEvents() {
@@ -314,15 +320,22 @@ function openSettings() {
   };
 }
 
-// ── Eingabe: Tippen, Pinch-Zoom ───────────────────────────────
+// ── Eingabe: Multi-Touch-Tippen (bis zu 5 Finger), Pinch-Zoom ──
+// Jeder Finger, der das Feld berührt, zählt als voller Tipp. Gezoomt wird erst, wenn sich
+// zwei Finger spürbar auseinander- oder zusammenbewegen (Schwelle PINCH_MIN).
+const MAX_FINGERS = 5, PINCH_MIN = 18;
 const pointers = new Map();
-let pinchDist = 0;
+let pinchDist = 0, pinchStart = 0, pinching = false;
 const cv = $('world');
 cv.addEventListener('pointerdown', (e) => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) { const [a, b] = [...pointers.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); return; }
-  if (pointers.size > 1 || !running || cinematic || world.mode !== 'play') return;
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    pinchDist = pinchStart = Math.hypot(a.x - b.x, a.y - b.y); pinching = false;
+  }
+  if (!running || cinematic || world.mode !== 'play' || pointers.size > MAX_FINGERS) return;
   if (world.hitGlitch(e.clientX, e.clientY)) { collectFragment(); return; }
+  if (world.hitMutation(e.clientX, e.clientY)) { collectMutation(); return; }
   tap(e.clientX, e.clientY);
 });
 cv.addEventListener('pointermove', (e) => {
@@ -330,22 +343,90 @@ cv.addEventListener('pointermove', (e) => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2 && pinchDist > 0) {
     const [a, b] = [...pointers.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (!pinching && Math.abs(d - pinchStart) < PINCH_MIN) return;
+    pinching = true;
     world.zoomBy(-Math.log10(d / pinchDist) * 1.6); pinchDist = d; updateRail();
   }
 });
-const up = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinchDist = 0; };
+const up = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) { pinchDist = 0; pinching = false; } };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 cv.addEventListener('wheel', (e) => { e.preventDefault(); world.zoomBy(e.deltaY * 0.0015); updateRail(); }, { passive: false });
-let lastTap = 0;
+let lastTap = 0, lastSfx = 0;
 function tap(x, y) {
-  const v = E.tapValue(S);
+  const v = E.tapValue(S, undefined, res);
   E.earn(S, v); S.taps++;
+  res = Math.min(1, res + E.resonanceGain(S)); lastTapAt = performance.now();
   world.burst(x, y, EPOCHS[S.epoch].color, 8);
   world.floater(x + (Math.random() - 0.5) * 40, y - 14 - Math.random() * 16, '+' + fmt(v), '#ffffff');
-  music.tap();
   const now = performance.now();
+  if (now - lastSfx > 45) { music.tap(); lastSfx = now; }
   if (now - lastTap > 60) vibrate(6);
   lastTap = now;
+}
+
+// ── V2: Mutationen ────────────────────────────────────────────
+function pickMutation() {
+  const total = MUTATIONS.reduce((a, m) => a + m.w, 0);
+  let r = Math.random() * total;
+  for (const m of MUTATIONS) { r -= m.w; if (r <= 0) return m; }
+  return MUTATIONS[0];
+}
+function collectMutation(forced) {
+  const m = forced || pickMutation();
+  music.fragment(); vibrate([10, 20, 10]);
+  world.doFlash('#7cf29c', 0.25);
+  let text = m.text;
+  if (m.kind === 'gain') {
+    const secs = E.mutationPower(S, m.secs);
+    const gain = E.prodPerSec(S) * secs + E.tapValue(S, undefined, 0) * 20;
+    E.earn(S, gain); text = `+${fmt(gain)} ✦`;
+  } else {
+    const mult = E.mutationPower(S, m.mult);
+    const old = S.buffs.find((b) => b.k === m.kind && b.id === m.id);
+    if (old) old.t = m.dur; else S.buffs.push({ id: m.id, k: m.kind, m: mult, t: m.dur });
+    text = `×${fmt(mult)} ${m.kind === 'prod' ? 'Produktion' : 'Tippen'}`;
+  }
+  world.floater(world.cx, world.cy - 70, `${m.name}: ${text}`, '#7cf29c');
+  updateHud(); updateBuffs(); save();
+}
+function updateBuffs() {
+  $('buffs').innerHTML = S.buffs.map((b) => `<b>${MUTATIONS.find((m) => m.id === b.id)?.name || b.id} ×${fmt(b.m)} · ${Math.ceil(b.t)} s</b>`).join('');
+}
+function updateResonance() {
+  const el = $('reso');
+  const on = res > 0.03;
+  el.classList.toggle('on', on);
+  if (on) {
+    el.querySelector('i').style.width = `${res * 100}%`;
+    el.querySelector('span').textContent = `RESONANZ ×${fmt(E.resonanceMult(S, res))}`;
+  }
+}
+
+// ── V2: Merkmale (Draft bei jedem Evolutionssprung) ───────────
+function offerTrait(after) {
+  if (!S.pendingTrait) {
+    const pool = TRAITS.filter((t) => !S.traits.includes(t.id)).map((t) => t.id);
+    if (!pool.length) { after && after(); return; }
+    const offer = [];
+    while (offer.length < 3 && pool.length) offer.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    S.pendingTrait = offer; save();
+  }
+  showDraft(after);
+}
+function showDraft(after) {
+  music.boom(); vibrate([20, 30, 40]);
+  const kicker = creator() ? 'DU WÄHLST EIN MERKMAL' : 'DIE EVOLUTION PROBIERT';
+  const opt = (id) => { const t = TRAITS.find((x) => x.id === id); return `<button class="choice-btn" data-id="${id}"><b>${t.name}</b><span>${t.sub}</span><em>${t.effect}</em></button>`; };
+  openModal(`<div class="kicker">✦ NEUES MERKMAL · ${kicker}</div><h2>Was bleibt?</h2><p>Jedes Leben trägt etwas weiter. Dieses Merkmal begleitet dein Universum bis zum Ende.</p>${S.pendingTrait.map(opt).join('')}`, false);
+  for (const b of $('modalCard').querySelectorAll('.choice-btn')) b.onclick = () => {
+    const t = TRAITS.find((x) => x.id === b.dataset.id);
+    S.traits.push(t.id); S.pendingTrait = null;
+    closeModal();
+    addTimeline(`Merkmal: <b>${t.name}</b><small>${t.effect}</small>`, 'choice', '#7cf29c');
+    world.doFlash('#7cf29c', 0.4); vibrate(40);
+    refreshStatic(); updateHud(); save();
+    after && after();
+  };
 }
 
 document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
@@ -370,8 +451,15 @@ function loop(now) {
     const pps = E.prodPerSec(S);
     E.earn(S, pps * dt);
     S.playTime += dt;
+    // Resonanz verfällt, Mutations-Effekte laufen ab
+    if (performance.now() - lastTapAt > 350) res = Math.max(0, res - E.TUNING.resDecay * dt);
+    if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
+    if (!cinematic && !modalOpen()) {
+      nextMut -= dt;
+      if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
+    }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateHud(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen()) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen()) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen()) {
@@ -594,7 +682,7 @@ document.addEventListener('visibilitychange', () => {
   else {
     const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
     if (running && away > 30 && !S.finished) {
-      const gain = E.prodPerSec(S) * away * 0.6;
+      const gain = E.prodPerSec(S) * away * E.offlineEfficiency(S);
       E.earn(S, gain);
       world.floater(world.cx, world.cy, `+${fmt(gain)} ✦ (offline)`, '#fff3b0');
     }
@@ -623,13 +711,14 @@ window.addEventListener('resize', () => world.resize());
   // Offline-Ertrag
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
-  if (!S.finished && away > 30) { offline = E.prodPerSec(S) * away * 0.6; E.earn(S, offline); }
+  if (!S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
   await titleScreen(offline);
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
-  if (S.pendingEvent) { const ev = EVENTS.find((x) => x.id === S.pendingEvent); if (ev) showEvent(ev); }
+  const showPending = () => { if (S.pendingEvent) { const ev = EVENTS.find((x) => x.id === S.pendingEvent); if (ev) showEvent(ev); } };
+  if (S.pendingTrait) offerTrait(showPending); else showPending();
   say(voiceSet()[S.epoch].idle.slice(0, 1));
 })();
 
@@ -641,6 +730,10 @@ if (location.search.includes('dev')) {
     leapNow() { E.earn(S, E.leapCost(S, S.epoch)); return doLeap(); },
     buyAll(n = 10) { for (let i = 0; i < (S.epoch + 1) * 3; i++) S.owned[i] += n; refreshStatic(); },
     glitch() { world.spawnGlitch(); return world.glitch; },
+    mutation() { world.spawnMutation(E.mutationLife(S)); return world.mutation; },
+    collect(id) { collectMutation(MUTATIONS.find((m) => m.id === id)); },
+    draft() { offerTrait(); },
+    get res() { return res; },
     world,
   };
 }

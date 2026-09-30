@@ -52,4 +52,13 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - Finale: Singularität → „Der Gedanke" (Konstanten verteilen, Balance/Stabilität, Absicht, Halten) → Urknall → Universum 145 als Schöpfer; Totgeburt bei zu ungleicher Verteilung
 - Offline-Ertrag, Autosave, Einstellungen (Musik/SFX/Vibration/Reset)
 
+### V2.0 (Teil 1)
+- **Multi-Touch:** bis zu 5 Finger, jeder = voller Tipp. Pinch-Zoom erst ab 18 px Fingerbewegung (`PINCH_MIN`).
+- **Resonanz:** schnelles Tippen lädt einen Tipp-Multiplikator (bis ×2) auf, Anzeige im HUD. `TUNING.resGain/resDecay`.
+- **Mutationen:** leuchtender Helix-Glimmer in der Welt (erste nach ~18 s, dann alle 40–80 s), Schub (Produktion ×4) / Raserei (Tippen ×6) / Ernte (Sofortertrag). Definition in `MUTATIONS`.
+- **Merkmale:** Draft „1 aus 3" bei jedem Evolutionssprung (vor dem Kataklysmus), 10 Merkmale in `TRAITS`, gelten für den Durchlauf, Anzeige in der Zeitlinie. Wirkung in `economy.js` (`hasTrait`).
+- Test: `python3 tools/test_v2.py <ordner>` (Multi-Touch per CDP, Pinch, Resonanz, Mutationen, Draft).
+- Fester Debug-Schlüssel `android/app/debug.keystore` (im Repo), damit APKs über ältere drüberinstalliert werden können (ab V2; V1-APK war anders signiert → einmal deinstallieren).
+- **Entscheidung In-App-Käufe:** bewusst noch nicht. Erst Spielgefühl/Features fertigstellen. Später nötig: Play-Console-Konto (25 $), signierte Release-APK/AAB, Billing-Plugin (z. B. RevenueCat/cordova-plugin-purchase). Konzept: nur Komfort/Kosmetik (Werbefrei-Äquivalent, Soundtrack-/Farbthemen), kein Pay-to-win bei den Universum-Konstanten.
+
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.
