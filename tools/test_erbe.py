@@ -17,7 +17,8 @@ def base(**kw):
          'finished': False, 'choices': {}, 'pendingEvent': None, 'fragments': [], 'constants': {'g': 0, 's': 0, 'em': 0, 'c': 0, 'x': 0},
          'intent': None, 'timeline': [], 'voiceEntered': [], 'taps': 0, 'playTime': 600, 'lastSeen': int(time.time() * 1000),
          'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True,
-         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False, 'law': 'nebel'}
+         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False,
+         'myths': [{'e': 4, 'id': 'stille', 'name': 'Stub', 'dogma': None}, {'e': 5, 'id': 'stille', 'name': 'Stub', 'dogma': None}, {'e': 6, 'id': 'stille', 'name': 'Stub', 'dogma': None}], 'law': 'nebel'}
     s.update(kw); return s
 
 with sync_playwright() as p:
@@ -82,11 +83,13 @@ with sync_playwright() as p:
     # Relikt der Zellebene (e=1) ist nur auf Zoom-Ebene 1 sichtbar/findbar
     rm = next(x for x in rel if x['id'] == 'mutter')
     pg.evaluate('window.__dev.world.z=2;window.__dev.world.zTarget=2')
+    pg.evaluate('window.__dev.world.mutation=null;window.__dev.world.glitch=null')   # zufällige Glimmer dürfen den Tipp nicht schlucken
     c0 = S('taps'); touch('touchStart', [{'x': rm['x'], 'y': rm['y'], 'id': 1}]); touch('touchEnd', [])
     check('auf falscher Ebene nicht findbar (zählt als Tipp)', S('relics') == [] and S('taps') == c0 + 1, f"{S('relics')} taps+{S('taps') - c0} z={pg.evaluate('window.__dev.world.z')} rel={rel}")
     pg.evaluate('window.__dev.world.z=1;window.__dev.world.zTarget=1'); pg.wait_for_timeout(200)
     pg.screenshot(path=f'{out}/1-relikt.png')
     print('   Relikt-Position', rm, 'z=', pg.evaluate('window.__dev.world.z'))
+    pg.evaluate('window.__dev.world.mutation=null;window.__dev.world.glitch=null')
     touch('touchStart', [{'x': rm['x'], 'y': rm['y'], 'id': 1}]); touch('touchEnd', [])
     pg.wait_for_timeout(300)
     check('Relikt eingesammelt', S('relics') == ['mutter'], json.dumps(S('relics')))

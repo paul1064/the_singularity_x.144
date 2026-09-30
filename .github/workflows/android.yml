@@ -48,10 +48,10 @@ jobs:
       - name: APK nach release/ committen
         run: |
           mkdir -p release
-          cp out/the-singularity-x144.apk release/the-singularity-x144-v3.apk
+          cp out/the-singularity-x144.apk release/the-singularity-x144-v4.apk
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f release/the-singularity-x144-v3.apk
+          git add -f release/the-singularity-x144-v4.apk
           git diff --cached --quiet || git commit -m "APK bauen [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main

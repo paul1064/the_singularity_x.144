@@ -36,7 +36,7 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 
 ## Android-Build
 - Lokal: `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (braucht Android SDK 35, JDK 21).
-- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v3.apk` (Bot-Commit „APK bauen [skip ci]").
+- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v4.apk` (Bot-Commit „APK bauen [skip ci]").
 - Nach Änderungen an `www/` immer `npx cap sync android`. Icon/Splash: `python3 tools/make-assets.py && npx capacitor-assets generate --android`.
 - Zurück-Taste (in `main.js`): schließt offenes Fenster, sonst speichern + App minimieren.
 - Screenshots: `python3 tools/screens.py <ordner>` (Ergebnisse in `docs/screens/`).
@@ -72,14 +72,23 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - **Button-Eingabe über `onTap` (pointerup)** statt `click`: Android erzeugt kein `click`, solange andere Finger gedrückt sind. So lassen sich Upgrades kaufen, während drei Finger weiter die Welt antippen. Wischen (>14 px oder `pointercancel`) kauft nichts.
 - **Vermächtnis & Relikte:** Beim Urknall werden die gewählten Avatare in `S.legacy` (bleibt über Durchläufe) gespeichert. Im neuen Universum liegt jeder je gewählte Avatar (je `id` einmal) als **Relikt** in seiner Epoche: bernsteinfarbene Raute, nur auf der passenden Zoom-Ebene sichtbar/antippbar (Rail-Punkt pulsiert amber). Einsammeln → Lore-Fenster (`RELIC_TEXT`) + **Echo** = halbe Aura-Wirkung für den Durchlauf (`auraMult`). Anreiz: pro Durchlauf andere Avatare wählen, Relikt-Sammlung erweitern.
 - Test: `python3 tools/test_erbe.py <ordner>` (Kauf bei gehaltenen Fingern per CDP, Relikte, Echo, Vermächtnis). Hinweis CDP: `touchEnd` beendet nur die genannten Finger, `[]` beendet alle.
-- Dateiname der CI-APK: `release/the-singularity-x144-v3.apk`.
+- Dateiname der CI-APK: `release/the-singularity-x144-v4.apk` (ältere v1–v3 bleiben als Archiv im Repo).
 
 ### V3.1: Story & Abwechslung
 - **Briefe der Vorgänger** (`LETTERS`, 10 Stück, Universum 143 → 1): ab Durchlauf 2 kommt beim Eintritt in Landgang (Epoche 4) und Technosphäre (Epoche 7) je ein Brief, der Reihe nach (`S.letters`, bleibt über Durchläufe). Einige haben Antworten (`ethik` ±1, bleibt). Der 10. Brief („Ich", Universum 1) hat je nach Ethik eine andere Schlusspassage und schließt den Bogen („Ich bin du. Ich war es immer."). Archiv im Fragmente-Tab.
 - **Kosmische Gesetze** (`LAWS`, 8 Stück): ab Durchlauf 2 bekommt jedes Universum zufällig eines (nicht dasselbe wie zuvor), Ankündigung per Fenster, Anzeige in der Zeitlinie. Wirkung über `lawFx(state)` in `economy.js` (prod/tap/cost/leap/cata/offline/mutFreq/epochs).
-- **Epochen-Momente** (`MOMENTS`): beim Eintritt in Epoche 2, 4, 6, 7, 8 startet eine kurze Szene im Vollbild (Panel blendet aus): *collect* (Funken fangen, ggf. beweglich) oder *hold* (n Finger gleichzeitig auf Ringen halten – bis 5 Finger). Belohnung: Sofortertrag + Buff; Verpassen gibt nur Trost. Logik `startMoment/updateMoment/endMoment` (main.js), Darstellung/Treffer `World.startMoment/hitMoment/_updateMoment` (render.js).
+- **Epochen-Momente** (`MOMENTS`): beim Eintritt in Epoche 2, 4, 6, 7, 8 startet eine kurze Szene im Vollbild (Panel blendet aus): *collect* (Funken fangen, ggf. beweglich) oder *hold* (n Finger gleichzeitig auf Ringen halten – höchstens 3, kompakte Ringe, damit es mit einer Hand geht). Belohnung: Sofortertrag + Buff; Verpassen gibt nur Trost. Logik `startMoment/updateMoment/endMoment` (main.js), Darstellung/Treffer `World.startMoment/hitMoment/_updateMoment` (render.js).
 - **Entropie:** `TUNING.entropy` (0,5): Sprungkosten +50 % je abgeschlossenem Durchlauf, bremst späte Läufe etwas.
 - **Story-Warteschlange** `checkQueue()`: Gesetz → Brief → Moment → Avatar, nie gleichzeitig mit Merkmal/Kataklysmus/Fenster.
 - Test: `python3 tools/test_story.py <ordner>`. Alle Test-Zustände setzen `moments:[1..7]`, `letters:10`, `pendingLaw:false`, damit nichts dazwischenfunkt.
+
+### V4.0: Mythologie, Enden, Zeitparadox, Chronik
+- **Eingriffe** (`S.acts`: kraft = Avatar-Kräfte/Zeitparadox-Sendungen, mutation = eingesammelte Mutationen, moment = gewonnene Momente) bestimmen `E.dominantAct` → kraft | funke | stille (unter 4 Eingriffe).
+- **Mythologie** (`MYTHS`, `DOGMAS`): ab Durchlauf 2 entsteht beim Eintritt in Epoche 4/5/6 ein Mythos, dessen Text von der dominanten Eingriffsart abhängt; der Spieler wählt 1 von 2 **Dogmen** (Aura-Bonus, auch `cd` = schnellere Avatar-Abklingzeit). Der Gott kommt ins **Pantheon** (`S.pantheon`, bleibt über Universen, +2 % Produktion je Gott, max. 10). Queue-Reihenfolge: Gesetz → Brief → Moment → Mythos → Avatar.
+- **Enden** (`ENDINGS`, `E.endingOf`): 6 Stück aus Ethik (Brief-Antworten) × Eingriffsart; alle 10 Briefe gelesen → *Der Erste Gedanke*. Beim Erreichen der Singularität zeigt `showEnding` die Ende-Szene (vor „Der Gedanke"); jedes neue Ende gibt ein **Siegel** (`S.endings`, bleibt, +3 % Produktion je Siegel).
+- **Zeitparadox** (`sendKnowledge`, `ripParadox`): ab Epoche 4 Karte im Evolution-Tab. Sendung in frühere Epoche: Kosten 10 % der ✦, diese Epoche +100 % je Sendung (max. 3), global +4 % je Sendung, Paradox +25; über 100 % reißt die Zeit (Sendungen weg, −40 % ✦). Abbau 0,4/s. Werte in `TUNING`.
+- **Chronik** (`S.chronik`, bleibt): pro abgeschlossenem Universum ein Eintrag (Gesetz, Ende, Avatare, Mythen, Dauer …). Ansicht/Teilen über Zeitlinie-Tab oder Einstellungen; Teilen über `@capacitor/share` (Android-Teilen-Menü), Fallback `navigator.share`/Zwischenablage.
+- Finale-Moment „Der Gedanke formt sich": nur noch **3 Finger** (Ringe kompakt, großzügige Trefferzone).
+- Test: `python3 tools/test_v4.py <ordner>` (dauert ~1 min wegen der Schlusszeilen vor der Ende-Szene). Hinweis: `__dev.leapNow()` im Finale nicht awaiten (Promise endet erst nach Klick auf „Den Gedanken denken").
 
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.

@@ -17,7 +17,8 @@ def base(**kw):
          'finished': False, 'choices': {}, 'pendingEvent': None, 'fragments': [], 'constants': {'g': 0, 's': 0, 'em': 0, 'c': 0, 'x': 0},
          'intent': None, 'timeline': [], 'voiceEntered': [], 'taps': 0, 'playTime': 600, 'lastSeen': int(time.time() * 1000),
          'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True,
-         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False}
+         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False,
+         'myths': [{'e': 4, 'id': 'stille', 'name': 'Stub', 'dogma': None}, {'e': 5, 'id': 'stille', 'name': 'Stub', 'dogma': None}, {'e': 6, 'id': 'stille', 'name': 'Stub', 'dogma': None}]}
     s.update(kw); return s
 
 with sync_playwright() as p:
@@ -150,19 +151,19 @@ with sync_playwright() as p:
     touch('touchEnd', [])
     ctx.close()
 
-    # ── 5) Moment mit 5 Fingern (Der Gedanke formt sich) ────────
+    # ── 5) Moment mit 3 Fingern (Der Gedanke formt sich) ────────
     ctx, pg = open_page(base(epoch=7, complexity=1e6, runEarned=1e6, moments=[1, 2, 3, 4, 5, 6]))
     cdp = ctx.new_cdp_session(pg)
     touch = lambda kind, pts: cdp.send('Input.dispatchTouchEvent', {'type': kind, 'touchPoints': pts})
     S = lambda e: pg.evaluate(f'window.__dev.S.{e}')
     pg.evaluate('window.__dev.S.pendingMoment=7;window.__dev.queue()'); pg.wait_for_timeout(500)
     rings = pg.evaluate('window.__dev.world.moment.items.map(i=>({x:i.x,y:i.y}))')
-    check('5 Ringe', len(rings) == 5)
+    check('3 Ringe (höchstens 3 Finger nötig)', len(rings) == 3)
     pts = [{'x': r['x'], 'y': r['y'], 'id': i + 1} for i, r in enumerate(rings)]
     touch('touchStart', pts); pg.wait_for_timeout(1500)
-    pg.screenshot(path=f'{out}/8-moment-5finger.png')
-    pg.wait_for_timeout(2200)
-    check('5-Finger-Moment geschafft', pg.evaluate('window.__dev.world.moment') is None and 7 in S('moments') and any(x['m'] == 6 for x in S('buffs')), json.dumps(S('buffs')))
+    pg.screenshot(path=f'{out}/8-moment-3finger.png')
+    pg.wait_for_timeout(3200)
+    check('Finale-Moment mit 3 Fingern geschafft', pg.evaluate('window.__dev.world.moment') is None and 7 in S('moments') and any(x['m'] == 6 for x in S('buffs')), json.dumps(S('buffs')))
     touch('touchEnd', [])
     ctx.close()
     b.close()

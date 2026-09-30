@@ -187,10 +187,10 @@ export class World {
         items.push({ x: 60 + Math.random() * (w - 120), y: 190 + Math.random() * (h - 420), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 30, alive: true, ph: Math.random() * 6 });
       }
     } else {
-      const R = Math.min(w * 0.3, 130), cy = h * 0.44;
+      const R = Math.min(w * 0.24, 100), cy = h * 0.44;   // kompakt: mit einer Hand bequem erreichbar
       for (let i = 0; i < def.n; i++) {
         const a = -Math.PI / 2 + i / def.n * TAU;
-        items.push(def.n === 1 ? { x: w / 2, y: cy, r: 40 } : { x: w / 2 + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: def.n > 3 ? 34 : 40 });
+        items.push(def.n === 1 ? { x: w / 2, y: cy, r: 40 } : { x: w / 2 + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: 42 });
       }
     }
     this.moment = { ...def, items, t: 0, prog: 0, left: def.n, done: false, failed: false };
@@ -203,7 +203,7 @@ export class World {
         if (m.left <= 0) m.done = true;
         return true;
       }
-      if (m.kind === 'hold' && Math.hypot(x - it.x, y - it.y) < it.r + 22) return true;
+      if (m.kind === 'hold' && Math.hypot(x - it.x, y - it.y) < it.r + 30) return true;
     }
     return false;
   }
@@ -218,7 +218,7 @@ export class World {
       }
     } else {
       let all = true;
-      for (const it of m.items) { it.cov = this.touches.some((p) => Math.hypot(p.x - it.x, p.y - it.y) < it.r + 22); if (!it.cov) all = false; }
+      for (const it of m.items) { it.cov = this.touches.some((p) => Math.hypot(p.x - it.x, p.y - it.y) < it.r + 30); if (!it.cov) all = false; }
       m.prog = all ? Math.min(m.hold, m.prog + dt) : Math.max(0, m.prog - dt * 1.2);
       if (m.prog >= m.hold) m.done = true;
     }

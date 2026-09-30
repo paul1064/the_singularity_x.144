@@ -77,6 +77,24 @@ body.moment #panel, body.moment #rail, body.moment .dock, body.moment #voice { o
 .law-card small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .letter small { color: #ffd166 !important; }
 
+/* ── V4: Zeitparadox, Mythos, Chronik ── */
+.paradox { margin: 10px 0 4px; padding: 12px 12px 10px; border-radius: 16px; background: rgba(199,125,255,0.07); border: 1px solid rgba(199,125,255,0.28); }
+.paradox .ph { display: flex; justify-content: space-between; align-items: baseline; }
+.paradox .ph b { font-size: 10px; letter-spacing: .22em; color: #c77dff; }
+.paradox .ph span { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.paradox .pbar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.1); margin: 7px 0 9px; overflow: hidden; }
+.paradox .pbar i { display: block; height: 100%; width: 0; background: #c77dff; transition: width .25s, background .25s; }
+.paradox .pbar i.hot { background: #ff6b81; }
+.paradox .pbtns { display: flex; flex-wrap: wrap; gap: 6px; }
+.paradox .pbtns button { flex: 1 1 28%; min-width: 92px; padding: 7px 8px; border-radius: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--line); text-align: left; touch-action: manipulation; }
+.paradox .pbtns button span { display: block; font-size: 12.5px; font-weight: 600; }
+.paradox .pbtns button small { font-size: 11px; color: var(--muted); }
+.paradox .pbtns button.maxed { opacity: .4; }
+.paradox .phint { display: block; margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.35; }
+.chronik-row { padding: 9px 11px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.chronik-row b { display: block; font-size: 13.5px; color: #fff; }
+.chronik-row.now { border-color: rgba(255,243,176,0.4); }
+
 /* ── Zoom-Leiste ─────────────────────── */
 #rail {
   position: fixed; right: 10px; top: calc(var(--safe-t) + 128px); bottom: calc(var(--panel-h) + 24px);

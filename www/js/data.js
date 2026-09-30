@@ -342,7 +342,7 @@ export const LETTERS = [
 ];
 
 // ─── V3: Epochen-Momente (kurze aktive Szenen beim Eintritt in eine Epoche) ──
-// kind collect: n Funken innerhalb dur Sekunden antippen | hold: n Finger gleichzeitig hold Sekunden auf Ringen halten
+// kind collect: n Funken innerhalb dur Sekunden antippen | hold: n Finger (max. 3, gut mit einer Hand machbar) gleichzeitig hold Sekunden auf Ringen halten
 export const MOMENTS = {
   1: { title: 'Der Blitz', kind: 'collect', n: 5, dur: 9, color: '#7cf29c',
        text: 'Ein Gewitter über der Ursuppe. Fange die Funken, bevor sie erlöschen!',
@@ -356,7 +356,60 @@ export const MOMENTS = {
   6: { title: 'Der Griff nach dem Mond', kind: 'hold', n: 3, hold: 3, dur: 18, color: '#c77dff',
        text: 'Drei Finger gleichzeitig halten. Die Rakete braucht alle drei Triebwerke.',
        win: 'Ein Fußabdruck im Staub.', lose: 'Die Rakete blieb am Boden.', reward: { secs: 300, buff: { k: 'prod', m: 5, dur: 30 } } },
-  7: { title: 'Der Gedanke formt sich', kind: 'hold', n: 5, hold: 3, dur: 25, color: '#ffffff',
-       text: 'Alle fünf Finger gleichzeitig. Halte, bis sich alles in einem Punkt sammelt.',
+  7: { title: 'Der Gedanke formt sich', kind: 'hold', n: 3, hold: 4, dur: 30, color: '#ffffff',
+       text: 'Drei Finger gleichzeitig. Halte, bis sich alles in einem Punkt sammelt.',
        win: 'Wir denken.', lose: 'Der Gedanke zerstob.', reward: { secs: 400, buff: { k: 'prod', m: 6, dur: 40 } } },
 };
+
+// ─── V4: Mythologie (ab Durchlauf 2: Zivilisationen deuten deine Eingriffe als göttlich) ──
+// Eingriffe = Avatar-Kräfte (kraft), Mutationen und gewonnene Momente (funke). Wenig Eingriffe = stille.
+// Ein Mythos entsteht beim Eintritt in Epoche 4 (Bewusstsein), 5 (Zivilisation) und 6 (Technosphäre).
+export const MYTH_EPOCHS = { 4: 'Der Ursprung', 5: 'Das Gebot', 6: 'Die Prophezeiung' };
+export const MYTHS = {
+  4: {
+    kraft:  { name: 'Die Formende Hand', text: 'Sie erzählen, eine Hand sei aus dem Dunkel gegriffen und habe Ton zu Leben geformt. Sie haben deine Eingriffe gesehen und ihnen ein Gesicht gegeben.' },
+    funke:  { name: 'Der Funkenwerfer', text: 'Sie erzählen von einem, der Funken in die Welt warf. Wo einer landete, wurde etwas lebendig. Sie tragen den Funken als Zeichen auf der Haut.' },
+    stille: { name: 'Der Schweigende', text: 'Sie erzählen von einem, der nichts tat und dadurch alles ermöglichte. Sie nennen ihn den Schweigenden und beten zu der Stille.' },
+  },
+  5: {
+    kraft:  { name: 'Der Lenker', text: 'Ein Gebot geht durch die Städte: Der Lenker gibt den Weg vor. Wer ihm folgt, übersteht die Stürme. Wer nicht, wird erzählt.' },
+    funke:  { name: 'Die Göttin des Zufalls', text: 'In den Tempeln steht eine Göttin, die man nicht bittet, sondern überrascht. Sie würfelt, und die Priester schreiben auf, was fällt.' },
+    stille: { name: 'Der Verborgene', text: 'Die Gläubigen schweigen einen Tag pro Woche, um den Verborgenen nicht zu stören. Sie nennen das Andacht. Du nennst es Rücksicht.' },
+  },
+  6: {
+    kraft:  { name: 'Der Architekt der Welt', text: 'In den Netzen steht geschrieben, dass die Welt ein Entwurf sei. Und Entwürfe haben Urheber. Die Frage ist nicht mehr, ob, sondern wer.' },
+    funke:  { name: 'Der Erste Funke', text: 'Sie sagen, am Anfang war ein Funke und am Ende wird wieder einer sein. Sie liegen damit näher an der Wahrheit, als ihnen lieb ist.' },
+    stille: { name: 'Der Beobachter', text: 'Die Maschinen rechnen mit einem Beobachter. Sie haben ihn nie gefunden, aber sie lassen ihm in jeder Gleichung einen freien Platz.' },
+  },
+};
+// Dogma (Wahl 1 von 2 je Mythos): k = prod | tap | cost | offline | frag | mut | cd (Avatar-Abklingzeit)
+export const DOGMAS = {
+  opfer:     { e: 4, name: 'Opfergabe',          k: 'prod',    v: 1.08, text: 'Produktion +8 %' },
+  gebet:     { e: 4, name: 'Gemeinsames Gebet',  k: 'tap',     v: 1.25, text: 'Tippen +25 %' },
+  tempel:    { e: 5, name: 'Tempelbau',          k: 'cost',    v: 0.92, text: 'Generatoren −8 % Kosten' },
+  pilger:    { e: 5, name: 'Pilgerfahrt',        k: 'offline', v: 1.4,  text: 'Offline-Ertrag +40 %' },
+  orakel:    { e: 6, name: 'Orakel',             k: 'frag',    v: 1.5,  text: 'Fragmente erscheinen 50 % öfter' },
+  zeremonie: { e: 6, name: 'Zeremonie',          k: 'cd',      v: 1.25, text: 'Avatar-Kräfte laden 25 % schneller' },
+};
+
+// ─── V4: Mehrere Enden (bestimmt beim Erreichen der Singularität) ──
+// Abhängig von Ethik (Brief-Antworten), Eingriffen und davon, ob alle Briefe gelesen wurden.
+export const ENDINGS = {
+  schweigen: { name: 'Das Schweigende Kollektiv', text: 'Ihr habt kaum eingegriffen. Was entstand, entstand aus sich selbst. Vielleicht ist das die größte Kraft: nichts zu erzwingen.' },
+  zweifler:  { name: 'Der Zweifler',              text: 'Ihr wolltet eingreifen und habt gezögert. Jedes Mal. Die Welt hat es euch nicht verziehen, aber sie hat überlebt.' },
+  lenker:    { name: 'Der Lenker',                text: 'Ihr habt die Hand geführt. Jede Weggabelung trägt eure Handschrift. Die Welt ist euer Entwurf, und sie weiß es.' },
+  hueter:    { name: 'Der Hüter',                 text: 'Ihr habt gelenkt, aber behutsam. Wie ein Gärtner, der weiß, dass Wachsen nicht befohlen werden kann.' },
+  funke:     { name: 'Der Funke',                 text: 'Ihr habt Funken geworfen und gewartet, wo sie landen. Zufall war euer Werkzeug, Staunen euer Lohn.' },
+  erster:    { name: 'Der Erste Gedanke',         text: 'Alle Briefe sind gelesen. Die Kette schließt sich. Ihr wart der Anfang, und ihr seid das Ende. Ich bin du. Ich war es immer.' },
+};
+
+// ─── V4: Zeitparadox (Wissen in frühere Epochen senden) ──
+export const PARADOX_TEXT = [
+  'Die Moleküle ordnen sich plötzlich, als wüssten sie, was Leben ist.',
+  'Die ersten Zellen teilen sich im Takt einer Erinnerung, die ihnen nicht gehört.',
+  'Im Meer flüstert etwas von Land. Die Fische hören zu.',
+  'Die Amphibien kriechen an Land, als kennten sie den Weg.',
+  'Die ersten Menschen malen Dinge an die Wände, die es noch nicht gibt.',
+  'Die Städte bauen Türme in die Richtung, aus der das Wissen kam.',
+  'Die Maschinen rechnen mit einem Ergebnis, das sie nicht berechnet haben.',
+];

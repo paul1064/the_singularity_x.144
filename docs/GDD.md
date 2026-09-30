@@ -89,6 +89,7 @@ Die letzte offene Frage des Spiels: **Wer hat das erste gedacht?**
 | 15 | **Avatare** — je Epoche erwacht eine Gestalt (2 Wege, Aura + aktive Kraft) | **V2.0** |
 | 16 | **Das Erbe** — Avatare werden im nächsten Universum zu Relikten mit Echo | **V3.0** |
 | 17 | **Briefe der Vorgänger, Kosmische Gesetze, Epochen-Momente, Entropie** | **V3.1** |
+| 18 | **Mythologie, 6 Enden mit Siegeln, Zeitparadox, Chronik (teilbar)** | **V4.0** |
 | 6 | Relikte vergangener Läufe (Fossilien, Ruinen, Signale im neuen Universum) | V2 |
 | 8 | Mythologie — Zivilisationen erschaffen Götter aus deinen Eingriffen (Durchlauf 2+) | V2 |
 | 9 | Epochen-Momente — kurze aktive Mini-Szenen (erstes Feuer, Mondlandung) | V2 |

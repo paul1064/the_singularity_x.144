@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  THE SINGULARITY x.144 — Spielablauf & Oberfläche
 // ─────────────────────────────────────────────────────────────
-import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED, RELIC_TEXT, LAWS, LETTERS, MOMENTS } from './data.js';
+import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED, RELIC_TEXT, LAWS, LETTERS, MOMENTS, MYTH_EPOCHS, MYTHS, DOGMAS, ENDINGS, PARADOX_TEXT } from './data.js';
 import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
@@ -178,13 +178,14 @@ function renderTimeline() {
   const relHtml = S.relics.length ? `<div class="traits-head">RELIKTE ${S.relics.length}/${E.legacyIds(S).length}</div>${S.relics.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:#ffb347"><b>${o.name}</b><small>Echo: die Hälfte von „${o.aura.text}“</small></div>`; }).join('')}` : '';
   const lawHtml = S.law ? (() => { const l = LAWS.find((x) => x.id === S.law); return `<div class="traits-head">GESETZ DES UNIVERSUMS</div><div class="law-card"><b>${l.name}</b><small>${l.text}</small></div>`; })() : '';
   const avHtml = S.avatars.length ? `<div class="traits-head">AVATARE</div>${S.avatars.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:${EPOCHS[o.epoch].color}"><b>${o.name}</b><small>${o.aura.text}</small><small>„${o.power.name}": ${o.power.text} · alle ${o.power.cd} s</small></div>`; }).join('')}` : '';
-  if (!S.timeline.length) { box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
+  if (!S.timeline.length) { box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>' + '<button class="btn ghost" id="chronikBtn" style="margin:14px 0 0">Chronik ansehen &amp; teilen</button>'; onTap($('chronikBtn'), openChronik); return; }
   let html = '', u = null;
   for (const t of S.timeline) {
     if (t.u !== u) { u = t.u; html += `<div class="tl-u">UNIVERSUM ${u}</div>`; }
     html += `<div class="tl ${t.kind === 'choice' ? 'choice' : ''}" style="--c:${t.c}">${t.text}</div>`;
   }
-  box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + ((lawHtml || avHtml || relHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
+  box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + ((lawHtml || avHtml || relHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html + '<button class="btn ghost" id="chronikBtn" style="margin:14px 0 0">Chronik ansehen &amp; teilen</button>';
+  onTap($('chronikBtn'), openChronik);
   box.parentElement.scrollTop = box.parentElement.scrollHeight;
 }
 
@@ -214,7 +215,7 @@ function refreshStatic() {
   setAccent(S.epoch);
   world.alt = S.choices.asteroid === 'b';
   world.setDensity(S.owned);
-  buildRail(); buildGenList(); renderLeap(); renderFragments(); buildDock(); syncRelics();
+  buildRail(); buildGenList(); renderLeap(); renderFragments(); buildDock(); syncRelics(); buildParadox();
   if (tab === 'time') renderTimeline();
 }
 
@@ -323,6 +324,7 @@ function openSettings() {
   openModal(`<div class="kicker">EINSTELLUNGEN</div><h2>Universum ${S.universe}</h2>
     ${sw('music', 'Musik')}${sw('sfx', 'Soundeffekte')}${sw('vibrate', 'Vibration')}
     <p style="margin-top:14px;font-size:12.5px;color:var(--muted)">Durchläufe abgeschlossen: ${S.runsDone} · Fragmente: ${S.fragments.length}/${FRAGMENTS.length}<br>Tipp: Mit zwei Fingern zoomen oder die Punkte rechts antippen, um frühere Größenordnungen zu besuchen.</p>
+    <button class="btn ghost" id="chronikSet">Chronik ansehen &amp; teilen</button>
     <button class="btn ghost" id="closeSet">Schließen</button>
     <button class="btn danger" id="resetBtn">Spielstand löschen</button>`);
   for (const b of $('modalCard').querySelectorAll('.switch')) b.onclick = () => {
@@ -330,6 +332,7 @@ function openSettings() {
     music.setMusic(S.settings.music); music.setSfx(S.settings.sfx); save();
   };
   $('closeSet').onclick = closeModal;
+  $('chronikSet').onclick = openChronik;
   let armed = false;
   $('resetBtn').onclick = (e) => {
     if (!armed) { armed = true; e.target.textContent = 'Wirklich alles löschen? Nochmal tippen'; return; }
@@ -391,8 +394,9 @@ function pickMutation() {
   for (const m of MUTATIONS) { r -= m.w; if (r <= 0) return m; }
   return MUTATIONS[0];
 }
-function collectMutation(forced) {
+function collectMutation(forced, fromPower) {
   const m = forced || pickMutation();
+  if (!fromPower) S.acts.mutation++;
   music.fragment(); vibrate([10, 20, 10]);
   world.doFlash('#7cf29c', 0.25);
   let text = m.text;
@@ -471,7 +475,7 @@ function firePower(id) {
   if (cinematic || S.finished || modalOpen() || world.moment) return;
   const o = AVATAR_OPTS[id], cd = S.avatarCd[id] || 0;
   if (cd > 0) { vibrate(15); world.floater(world.cx, world.cy - 60, `${o.power.name} · noch ${Math.ceil(cd)} s`, '#ffffff'); return; }
-  S.avatarCd[id] = o.power.cd;
+  S.avatarCd[id] = o.power.cd; S.acts.kraft++;
   const col = EPOCHS[o.epoch].color;
   music.boom(); vibrate([20, 30, 60]); world.doFlash(col, 0.35); world.burst(world.cx, world.cy, col, 50, 1.6);
   world.floater(world.cx, world.cy - 80, `${o.name}: ${o.power.name}`, col);
@@ -483,7 +487,7 @@ function firePower(id) {
       const gain = E.prodPerSec(S) * fx.secs + E.tapValue(S, undefined, 0) * 20;
       E.earn(S, gain); world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, '#ffffff');
     } else if (fx.t === 'mutation') {
-      collectMutation();
+      collectMutation(undefined, true);
     } else if (fx.t === 'fragment') {
       if (fragmentPool().length && !world.glitch) world.spawnGlitch();
       else { const gain = E.prodPerSec(S) * 60; E.earn(S, gain); world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, '#ffffff'); }
@@ -492,7 +496,7 @@ function firePower(id) {
   updateHud(); updateBuffs(); updateDock(); save();
 }
 // Abklingzeiten laufen mit der Spielzeit (und offline)
-function tickAvatarCd(sec) { for (const id of S.avatars) if (S.avatarCd[id] > 0) S.avatarCd[id] = Math.max(0, S.avatarCd[id] - sec); }
+function tickAvatarCd(sec) { const r = sec * E.auraMult(S, 'cd'); for (const id of S.avatars) if (S.avatarCd[id] > 0) S.avatarCd[id] = Math.max(0, S.avatarCd[id] - r); }
 
 // ── V3: Story-Warteschlange (Gesetz → Brief → Moment → Avatar) ─
 function checkQueue() {
@@ -500,13 +504,143 @@ function checkQueue() {
   if (S.pendingLaw) { showLaw(); return; }
   if (S.pendingLetter !== null) { showLetter(S.pendingLetter); return; }
   if (S.pendingMoment) { startMoment(S.pendingMoment); return; }
+  if (S.pendingMyth) { showMyth(S.pendingMyth); return; }
   checkAvatars();
 }
 // beim Eintritt in eine Epoche: Brief der Vorgänger (ab Durchlauf 2, in Landgang und Technosphäre) und Epochen-Moment vormerken
 function queueStory() {
   if (creator() && (S.epoch === 3 || S.epoch === 6) && S.pendingLetter === null && S.letters < LETTERS.length) S.pendingLetter = S.letters;
   if (MOMENTS[S.epoch] && !S.moments.includes(S.epoch)) S.pendingMoment = S.epoch;
+  if (creator() && MYTHS[S.epoch] && !S.myths.some((m) => m.e === S.epoch)) S.pendingMyth = S.epoch;
   save();
+}
+
+// ── V4: Mythologie ────────────────────────────────────────────
+function showMyth(e) {
+  const type = E.dominantAct(S), def = MYTHS[e][type];
+  music.boom(); vibrate([20, 40, 20]); world.doFlash('#e9b3ff', 0.35);
+  const dog = Object.entries(DOGMAS).filter(([, d]) => d.e === e);
+  openModal(`<div class="kicker" style="color:#e9b3ff">MYTHOS · ${MYTH_EPOCHS[e].toUpperCase()}</div><h2>${def.name}</h2><p class="quote">${def.text}</p><p style="font-size:13px;color:var(--muted);margin:10px 0 6px">Die Menschen haben deine Eingriffe gedeutet. Welches Dogma wächst daraus?</p>${dog.map(([id, d]) => `<button class="choice-btn" data-id="${id}"><b>${d.name}</b><em>${d.text}</em></button>`).join('')}`, false);
+  for (const b of $('modalCard').querySelectorAll('.choice-btn')) b.onclick = () => finishMyth(e, type, b.dataset.id);
+}
+function finishMyth(e, type, dogmaId) {
+  const def = MYTHS[e][type], d = DOGMAS[dogmaId];
+  S.myths.push({ e, id: type, name: def.name, dogma: dogmaId }); S.pendingMyth = null;
+  if (!S.pantheon.some((g) => g.name === def.name)) S.pantheon.push({ u: S.universe, name: def.name });
+  closeModal();
+  addTimeline(`Mythos: <b>${def.name}</b><small>Dogma „${d.name}": ${d.text}</small>`, 'choice', '#e9b3ff');
+  world.doFlash('#e9b3ff', 0.5); vibrate(40);
+  updateHud(); save(); if (tab === 'time') renderTimeline();
+}
+
+// ── V4: Zeitparadox ───────────────────────────────────────────
+const paradoxOpen = () => S.epoch >= 3 && !S.finished;
+function buildParadox() {
+  const box = $('paradoxCard');
+  if (!paradoxOpen()) { box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="paradox"><div class="ph"><b>ZEITPARADOX</b><span class="pv"></span></div><div class="pbar"><i></i></div><div class="pbtns"></div><small class="phint">Sende Wissen in eine frühere Epoche: Sie produziert +100 % je Sendung (max. ${E.TUNING.sendMax}), alles +${E.TUNING.sendBonus * 100} %. Kosten ${E.TUNING.sendCost * 100} % deiner ✦. Bei über 100 % Paradox reißt die Zeit und alle Sendungen gehen verloren.</small></div>`;
+  const btns = box.querySelector('.pbtns');
+  for (let e = 0; e < S.epoch; e++) {
+    const b = document.createElement('button'); b.dataset.e = e;
+    b.innerHTML = `<span>${EPOCHS[e].name}</span><small></small>`;
+    onTap(b, () => sendKnowledge(e));
+    btns.appendChild(b);
+  }
+  updateParadox();
+}
+function updateParadox() {
+  const box = $('paradoxCard'); if (!box.firstChild) return;
+  const p = Math.round(S.paradox);
+  box.querySelector('.pv').textContent = `Paradox ${p} %`;
+  const bar = box.querySelector('.pbar i'); bar.style.width = `${Math.min(100, S.paradox)}%`; bar.classList.toggle('hot', S.paradox > 75);
+  for (const b of box.querySelectorAll('.pbtns button')) {
+    const n = S.sent[b.dataset.e] || 0;
+    b.querySelector('small').textContent = `${n}/${E.TUNING.sendMax} gesendet · ×${n + 1}`;
+    b.classList.toggle('maxed', n >= E.TUNING.sendMax);
+  }
+}
+function sendKnowledge(e) {
+  if (cinematic || S.finished || modalOpen() || world.moment || !paradoxOpen()) return;
+  if ((S.sent[e] || 0) >= E.TUNING.sendMax) { vibrate(20); return; }
+  const cost = S.complexity * E.TUNING.sendCost;
+  S.complexity -= cost; S.sent[e] = (S.sent[e] || 0) + 1; S.paradox += E.TUNING.paradoxPerSend; S.acts.kraft++;
+  music.boom(); vibrate([20, 30, 40]); world.doFlash('#c77dff', 0.3); world.burst(world.cx, world.cy, '#c77dff', 40, 1.5);
+  world.floater(world.cx, world.cy - 60, `Wissen → ${EPOCHS[e].name}`, '#c77dff');
+  say([PARADOX_TEXT[e]], 'plural');
+  if (S.paradox > 100) ripParadox();
+  updateParadox(); updateHud(); save();
+}
+function ripParadox() {
+  S.sent = {}; S.paradox = 0; S.complexity *= 0.6;
+  world.shake = 1.2; world.doFlash('#ff6b81', 0.9); music.boom(true); vibrate([80, 40, 160]);
+  world.floater(world.cx, world.cy - 20, 'Die Zeit reißt!', '#ff6b81');
+  addTimeline('Zeitparadox: <b>Die Zeit riss</b><small>Alle Sendungen gingen verloren, 40 % der ✦ auch.</small>', 'choice', '#ff6b81');
+  say(['Die Zeit reißt. Was wir sendeten, ist nie geschehen.'], 'plural');
+  updateParadox(); updateHud();
+}
+
+// ── V4: Enden ─────────────────────────────────────────────────
+function showEnding(fresh) {
+  const en = ENDINGS[S.ending], ids = Object.keys(ENDINGS);
+  return new Promise((res) => {
+    music.boom(true); world.doFlash('#ffffff', 0.8); vibrate([60, 40, 120]);
+    const row = ids.map((id) => `<div class="chronik-row${id === S.ending ? ' now' : ''}" style="margin-bottom:5px"><b style="font-size:12.5px">${S.endings.includes(id) ? ENDINGS[id].name : '▒▒▒ ▒▒▒▒▒▒'}</b></div>`).join('');
+    openModal(`<div class="kicker" style="color:#fff3b0">DAS ENDE · SIEGEL ${S.endings.length}/${ids.length}</div><h2>${en.name}</h2><p class="quote">${en.text}</p><p style="font-size:13px;color:#fff3b0">${fresh ? 'Neues Siegel: +3 % Produktion in allen künftigen Universen.' : 'Dieses Ende kennst du bereits.'}</p><div style="margin:10px 0 12px">${row}</div><button class="btn">Den Gedanken denken</button>`, false);
+    $('modalCard').querySelector('.btn').onclick = () => { closeModal(); res(); };
+  });
+}
+
+// ── V4: Chronik ───────────────────────────────────────────────
+const stripHtml = (h) => h.replace(/<small>/g, ' – ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+function chronikEntry() {
+  return { u: S.universe, law: S.law, ending: S.ending, avatars: S.avatars.map((id) => AVATAR_OPTS[id].name), myths: S.myths.map((m) => m.name),
+    min: Math.round(S.playTime / 60), ethik: S.ethik, letters: S.letters, relics: S.relics.length, sent: E.totalSent(S) };
+}
+function entryLines(en, live) {
+  const law = en.law ? LAWS.find((l) => l.id === en.law)?.name : null;
+  const out = [];
+  out.push(`Gesetz: ${law || 'keines'}`);
+  if (en.ending) out.push(`Ende: ${ENDINGS[en.ending].name}`);
+  if (en.avatars.length) out.push(`Avatare: ${en.avatars.join(', ')}`);
+  if (en.myths.length) out.push(`Mythen: ${en.myths.join(', ')}`);
+  if (en.relics) out.push(`Relikte gefunden: ${en.relics}`);
+  out.push(`${live ? 'Bisher' : 'Dauer'}: ${en.min} min`);
+  return out;
+}
+function chronikText() {
+  const L = [`THE SINGULARITY x.144 · CHRONIK`, ''];
+  const missing = S.universe - 144 - S.chronik.length;
+  if (missing > 0) L.push(`Universum 144–${144 + missing - 1}: vor Beginn der Chronik`, '');
+  for (const en of S.chronik) { L.push(`Universum ${en.u}`); entryLines(en).forEach((x) => L.push(`  ${x}`)); L.push(''); }
+  L.push(`Universum ${S.universe} (aktuell, ${EPOCHS[S.epoch].name})`);
+  entryLines({ ...chronikEntry(), ending: S.ending }, true).forEach((x) => L.push(`  ${x}`));
+  const tl = S.timeline.filter((t) => t.u === S.universe).map((t) => stripHtml(t.text)).slice(-14);
+  if (tl.length) { L.push('  Zeitleiste:'); tl.forEach((t) => L.push(`   · ${t}`)); }
+  L.push('', `Siegel: ${S.endings.length}/${Object.keys(ENDINGS).length} Enden · Pantheon: ${S.pantheon.length} Götter · Briefe: ${S.letters}/${LETTERS.length} · Ethik: ${S.ethik > 0 ? '+' : ''}${S.ethik}`);
+  return L.join('\n');
+}
+async function shareText(title, text) {
+  const cs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+  try {
+    if (cs) { await cs.share({ title, text, dialogTitle: 'Chronik teilen' }); return 'shared'; }
+    if (navigator.share) { await navigator.share({ title, text }); return 'shared'; }
+  } catch (e) { if (e && (e.name === 'AbortError' || /cancel/i.test(e.message || ''))) return 'cancel'; }
+  try { await navigator.clipboard.writeText(text); return 'copied'; } catch { /* kein Zugriff */ }
+  return 'fail';
+}
+function openChronik() {
+  const missing = S.universe - 144 - S.chronik.length;
+  const card = (en, live) => `<div class="chronik-row${live ? ' now' : ''}"><b>Universum ${en.u}${live ? ' · aktuell' : ''}</b>${entryLines(en, live).join('<br>')}</div>`;
+  openModal(`<div class="kicker">CHRONIK</div><h2>Deine Universen</h2>
+    ${missing > 0 ? `<div class="chronik-row">Universum 144–${144 + missing - 1}<br>vor Beginn der Chronik</div>` : ''}
+    ${S.chronik.map((en) => card(en)).join('')}${card({ ...chronikEntry(), ending: S.ending }, true)}
+    <p style="font-size:12.5px;color:var(--muted);margin:10px 0">Siegel ${S.endings.length}/${Object.keys(ENDINGS).length} · Pantheon ${S.pantheon.length} · Briefe ${S.letters}/${LETTERS.length}</p>
+    <button class="btn" id="shareBtn">Chronik teilen</button><button class="btn ghost" id="closeChr">Schließen</button>`);
+  $('closeChr').onclick = closeModal;
+  $('shareBtn').onclick = async (e) => {
+    const r = await shareText('Meine Chronik – The Singularity x.144', chronikText());
+    e.target.textContent = r === 'copied' ? 'In die Zwischenablage kopiert ✓' : r === 'fail' ? 'Teilen nicht möglich' : 'Chronik teilen';
+  };
 }
 
 // ── V3: Kosmische Gesetze ─────────────────────────────────────
@@ -577,7 +711,7 @@ function updateMoment() {
 function endMoment(win) {
   const m = world.moment; world.moment = null;
   document.body.classList.remove('moment'); $('momentBar').classList.add('hidden');
-  S.moments.push(m.e); S.pendingMoment = null;
+  S.moments.push(m.e); S.pendingMoment = null; if (win) S.acts.moment++;
   const r = m.reward, gain = E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0);
   E.earn(S, gain);
   if (win) {
@@ -670,13 +804,14 @@ function loop(now) {
     // Resonanz verfällt, Mutations-Effekte laufen ab
     if (performance.now() - lastTapAt > 350) res = Math.max(0, res - E.TUNING.resDecay * dt);
     tickAvatarCd(dt);
+    if (S.paradox > 0) S.paradox = Math.max(0, S.paradox - E.TUNING.paradoxDecay * dt);
     if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
     if (!cinematic && !modalOpen() && !world.moment) {
       nextMut -= dt;
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen() && !world.moment) {
@@ -770,7 +905,11 @@ function startAudio() {
 // ── Das Finale: Singularität & Der Gedanke ────────────────────
 async function finale() {
   cinematic = true; running = true;
-  S.finished = true; save();
+  S.finished = true;
+  S.ending = E.endingOf(S);
+  const freshEnding = !S.endings.includes(S.ending);
+  if (freshEnding) S.endings.push(S.ending);
+  save();
   renderLeap();
   world.zMax = 7; world.zTarget = 7;
   world.mode = 'converge'; world.converge = 0;
@@ -779,6 +918,7 @@ async function finale() {
   for (const l of VOICE.finale) { say([l], 'plural'); }
   await wait(VOICE.finale.length * 5200);
   clearInterval(conv);
+  await showEnding(freshEnding);
   thoughtScreen();
 }
 
@@ -881,6 +1021,7 @@ async function bigBang(k, intent) {
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
     letters: S.letters, letterChoices: S.letterChoices, ethik: S.ethik, lastLaw: S.law,
+    pantheon: S.pantheon, endings: S.endings, chronik: [...S.chronik, chronikEntry()],
     legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
@@ -959,6 +1100,9 @@ if (location.search.includes('dev')) {
     fire(id) { firePower(id); },
     bigBang(k, i) { return bigBang(k, i); },
     queue: checkQueue,
+    send(e) { sendKnowledge(e); },
+    chronikText,
+    openChronik,
     checkAvatars,
     get res() { return res; },
     world,

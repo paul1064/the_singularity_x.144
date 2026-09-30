@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  Ökonomie — reine Funktionen (auch in Node testbar)
 // ─────────────────────────────────────────────────────────────
-import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS, LAWS } from './data.js';
+import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS, LAWS, LETTERS, DOGMAS } from './data.js';
 
 export const TUNING = {
   costBase: 12,
@@ -14,6 +14,11 @@ export const TUNING = {
   offlineHours: 8,
   resGain: 0.06,      // Resonanz-Zuwachs pro Tipp (0–1)
   resDecay: 0.3,      // Resonanz-Verfall pro Sekunde
+  sendCost: 0.10,     // Zeitparadox: Anteil der ✦, den eine Sendung kostet
+  sendMax: 3,         // max. Sendungen je Epoche
+  sendBonus: 0.04,    // +4 % Produktion je Sendung (global)
+  paradoxPerSend: 25, // Paradox-Anstieg je Sendung (Riss ab > 100)
+  paradoxDecay: 0.4,  // Paradox-Abbau pro Sekunde
   entropy: 0.5,       // Sprungkosten +50 % je abgeschlossenem Durchlauf
 };
 
@@ -48,6 +53,15 @@ export function newState() {
     pendingAvatar: null,    // V2: Epoche, deren Avatar-Wahl noch aussteht
     legacy: [],             // V3: Avatare früherer Universen [{u, id}] – bleibt über Durchläufe
     relics: [],             // V3: in diesem Durchlauf gefundene Relikte (Avatar-IDs)
+    acts: { kraft: 0, mutation: 0, moment: 0 },   // V4: Eingriffe dieses Durchlaufs
+    myths: [],              // V4: [{e, id, name, dogma}] Mythen dieses Durchlaufs
+    pendingMyth: null,      // V4: Epoche, deren Mythos noch aussteht
+    pantheon: [],           // V4: [{u, name}] Götter früherer Universen (bleibt)
+    endings: [],            // V4: freigeschaltete Enden (bleibt)
+    ending: null,           // V4: Ende dieses Durchlaufs
+    chronik: [],            // V4: abgeschlossene Universen (bleibt)
+    sent: {},               // V4: Zeitparadox: Sendungen je Epoche (dieser Durchlauf)
+    paradox: 0,             // V4: Paradox-Pegel 0–100
     lastLaw: null,          // V3: Gesetz des vorherigen Universums (kein direkter Wiederholer)
     law: null,              // V3: Kosmisches Gesetz dieses Universums (ab Durchlauf 2)
     pendingLaw: false,      // V3: Gesetz wurde noch nicht angezeigt
@@ -66,6 +80,21 @@ export function baseCost(i) {
   return TUNING.costBase * Math.pow(TUNING.costTier, i);
 }
 
+export const totalSent = (state) => Object.values(state.sent).reduce((a, b) => a + b, 0);
+// dominante Art der Eingriffe: kraft | funke | stille (zu wenige Eingriffe)
+export function dominantAct(state) {
+  const a = state.acts, funke = a.mutation + a.moment;
+  if (a.kraft + funke < 4) return 'stille';
+  return a.kraft > funke ? 'kraft' : 'funke';
+}
+// Ende dieses Durchlaufs: Ethik (Brief-Antworten) × Art der Eingriffe; alle Briefe gelesen → Der Erste Gedanke
+export function endingOf(state) {
+  if (state.letters >= LETTERS.length) return 'erster';
+  const act = dominantAct(state);
+  if (act === 'stille') return state.ethik < 0 ? 'zweifler' : 'schweigen';
+  if (act === 'kraft') return state.ethik < 0 ? 'lenker' : 'hueter';
+  return 'funke';
+}
 export const lawFx = (state) => (state.law && LAWS.find((l) => l.id === state.law)?.fx) || {};
 export const hasTrait = (state, id) => state.traits.includes(id);
 // Avatar-Auren: Produkt aller Multiplikatoren der Art k
@@ -73,6 +102,7 @@ const echo = (v) => (v >= 1 ? 1 + (v - 1) / 2 : 1 - (1 - v) / 2);   // Relikt-Ec
 export const legacyIds = (state) => [...new Set(state.legacy.map((l) => l.id))];
 export const auraMult = (state, k) => {
   let m = state.avatars.reduce((acc, id) => { const a = AVATAR_OPTS[id]?.aura; return a && a.k === k ? acc * a.v : acc; }, 1);
+  for (const my of state.myths) { const d = DOGMAS[my.dogma]; if (d && d.k === k) m *= d.v; }
   for (const id of new Set(state.relics)) { const a = AVATAR_OPTS[id]?.aura; if (a && a.k === k) m *= echo(a.v); }
   return m;
 };
@@ -129,6 +159,7 @@ export function epochMult(state, e) {
   if (hasTrait(state, 'wuchern')) m *= 1.25;
   if (hasTrait(state, 'schwarm')) m *= 0.9;
   if (hasTrait(state, 'vorhut') && e === state.epoch) m *= 2;
+  m *= 1 + (state.sent[e] || 0);   // Zeitparadox: je Sendung +100 % für diese Epoche
   for (const [a, b, f] of lawFx(state).epochs || []) if (e >= a && e <= b) m *= f;
   const k = state.constants;
   if (e <= 1) m *= 1 + 0.15 * k.g;
@@ -138,7 +169,8 @@ export function epochMult(state, e) {
 }
 
 export function globalMult(state) {
-  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone) * auraMult(state, 'prod') * (lawFx(state).prod ?? 1);
+  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone) * auraMult(state, 'prod') * (lawFx(state).prod ?? 1)
+    * (1 + 0.02 * Math.min(10, state.pantheon.length)) * (1 + 0.03 * state.endings.length) * (1 + TUNING.sendBonus * totalSent(state));
 }
 
 export function genProd(state, i) {
