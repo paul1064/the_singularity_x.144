@@ -16,7 +16,8 @@ owned[0:3] = [20, 15, 10]; owned[3:6] = [12, 10, 6]    # Epoche 2: 28 Stück →
 state = {'v': 1, 'universe': 144, 'runsDone': 0, 'complexity': 5e5, 'runEarned': 1e6, 'lifetime': 1e6, 'owned': owned, 'epoch': 1,
          'finished': False, 'choices': {}, 'pendingEvent': None, 'fragments': [], 'constants': {'g': 0, 's': 0, 'em': 0, 'c': 0, 'x': 0},
          'intent': None, 'timeline': [], 'voiceEntered': [], 'taps': 0, 'playTime': 600, 'lastSeen': int(time.time() * 1000),
-         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True}
+         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True,
+         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False}
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH') or (glob.glob('/opt/pw-browsers/chromium-*/chrome-linux*/chrome') or [None])[0])

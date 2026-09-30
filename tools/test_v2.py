@@ -14,7 +14,8 @@ def check(name, ok, info=''):
 state = {'v': 1, 'universe': 144, 'runsDone': 0, 'complexity': 1000, 'runEarned': 1000, 'lifetime': 1000, 'owned': [5] + [0] * 23,
          'epoch': 0, 'finished': False, 'choices': {}, 'pendingEvent': None, 'fragments': [], 'constants': {'g': 0, 's': 0, 'em': 0, 'c': 0, 'x': 0},
          'intent': None, 'timeline': [], 'voiceEntered': [], 'taps': 0, 'playTime': 0, 'lastSeen': int(time.time() * 1000),
-         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True}
+         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True,
+         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False}
 
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=os.environ.get('CHROME_PATH') or (glob.glob('/opt/pw-browsers/chromium-*/chrome-linux*/chrome') or [None])[0])

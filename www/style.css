@@ -64,6 +64,19 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .av-card { padding: 10px 12px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 13px; }
 .av-card b { display: block; font-size: 13.5px; color: var(--c, #fff3b0); }
 .av-card small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+/* ── Epochen-Momente ─────────────────── */
+#momentBar { position: fixed; left: 24px; right: 24px; bottom: calc(var(--safe-b) + 34px); z-index: 6; text-align: center; pointer-events: none; }
+#momentBar.hidden { display: none; }
+#momentBar b { display: block; font-family: 'Cormorant', Georgia, serif; font-style: italic; font-size: 26px; font-weight: 600; text-shadow: 0 0 18px rgba(0,0,0,.8); }
+#momentBar span { display: block; margin: 6px auto 10px; max-width: 320px; font-size: 13.5px; color: #dfe6ff; text-shadow: 0 0 10px rgba(0,0,0,.9); }
+#momentBar .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.14); overflow: hidden; max-width: 320px; margin: 0 auto; }
+#momentBar .bar i { display: block; height: 100%; width: 100%; background: #fff; }
+body.moment #panel, body.moment #rail, body.moment .dock, body.moment #voice { opacity: 0 !important; pointer-events: none !important; transition: opacity .35s !important; }
+.law-card { padding: 10px 12px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 13px; }
+.law-card b { display: block; font-size: 13.5px; color: #c77dff; }
+.law-card small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.letter small { color: #ffd166 !important; }
+
 /* ── Zoom-Leiste ─────────────────────── */
 #rail {
   position: fixed; right: 10px; top: calc(var(--safe-t) + 128px); bottom: calc(var(--panel-h) + 24px);

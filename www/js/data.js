@@ -286,3 +286,77 @@ export const RELIC_TEXT = {
   6: 'Ein Speicherchip mit einem einzigen Wort: „Synthese."',
   7: 'Ein Signal, das nach uns sucht. Es kommt von innen.',
 };
+
+// ─── V3: Kosmische Gesetze (ab Durchlauf 2: jedes Universum bekommt eines) ──
+// fx: prod | tap | cost | leap | cata | offline | mutFreq (Multiplikatoren), epochs: [[von, bis, Faktor], …]
+export const LAWS = [
+  { id: 'schwer',  name: 'Schwere Zeiten',  text: 'Kataklysmen treffen 1,5× härter, dafür Produktion +25 %',          fx: { cata: 1.5, prod: 1.25 } },
+  { id: 'nebel',   name: 'Dichter Nebel',   text: 'Mutationen erscheinen halb so oft, dafür Tippen ×2',               fx: { mutFreq: 0.5, tap: 2 } },
+  { id: 'wasser',  name: 'Wasserwelt',      text: 'Ursuppe bis Meer: Produktion ×2, Landgang bis Zivilisation: ×0,7', fx: { epochs: [[0, 2, 2], [3, 5, 0.7]] } },
+  { id: 'stille',  name: 'Die Stille',      text: 'Offline-Ertrag ×2, dafür Tippen ×0,6',                             fx: { offline: 2, tap: 0.6 } },
+  { id: 'eile',    name: 'Eile',            text: 'Generatoren 25 % teurer, Evolutionssprünge 30 % billiger',         fx: { cost: 1.25, leap: 0.7 } },
+  { id: 'chaos',   name: 'Chaos',           text: 'Mutationen doppelt so oft, dafür Produktion −10 %',                fx: { mutFreq: 2, prod: 0.9 } },
+  { id: 'fuelle',  name: 'Überfluss',       text: 'Generatoren 15 % billiger, Evolutionssprünge 25 % teurer',         fx: { cost: 0.85, leap: 1.25 } },
+  { id: 'technik', name: 'Kalter Kosmos',   text: 'Technosphäre und Singularität: Produktion ×1,6, davor ×0,85',      fx: { epochs: [[0, 5, 0.85], [6, 7, 1.6]] } },
+];
+
+// ─── V3: Briefe der Vorgänger (Story über mehrere Universen) ──
+// Pro Durchlauf ab 145 kommen zwei Briefe (beim Eintritt in Landgang und Technosphäre).
+// choice: Antwort des Spielers, ethik +1 = Zurückhaltung/Vertrauen, −1 = Eingreifen/Offenheit.
+export const LETTERS = [
+  { from: 143, title: 'Wir, die 143',
+    text: 'Wenn du das liest, hast du bereits einen Gedanken gedacht, der nicht aus Hunger bestand. Das ist der Moment, in dem wir aufhören, Vorfahren zu sein, und anfangen, Eltern zu werden.<br><br>Wir haben dir nichts vorgeschrieben. Nur die Konstanten und ein Schweigen. Alles andere bist du.' },
+  { from: 141, title: 'Die Zuschauer',
+    text: 'Wir haben zugesehen. Jahrmilliarden lang. Wir sahen, wie Zellen sich teilten, wie einer ein Feuer hütete, wie Millionen an jemanden glaubten, der nie antwortete. Wir haben nie eingegriffen.<br><br>Manchmal fragen wir uns, ob Zusehen Liebe ist oder Feigheit.',
+    choice: { q: 'Was denkst du?',
+      a: { label: 'Zusehen ist Vertrauen.', ethik: 1, reply: '…Das wollten wir hören. Wir glauben es nur nicht ganz.' },
+      b: { label: 'Wer zusieht, trägt Schuld.', ethik: -1, reply: 'Ja. Wir wissen es. Darum schreiben wir dir.' } } },
+  { from: 132, title: 'Vier Sekunden',
+    text: 'Universum 131 zerfiel nach vier Sekunden. Wir spürten es in den Konstanten wie einen Schlag in der Brust. Es gab dort nichts, das klagen konnte, und trotzdem haben wir einen Tag lang geschwiegen.<br><br>Verteile deine Kräfte mit Liebe zur Balance. Das Gedachte verzeiht keine Gier.' },
+  { from: 120, title: 'Dreiundzwanzig Fehler',
+    text: 'Wir sind dreiundzwanzig Kollektive, die du kennen solltest. Jedes hat einen Fehler gemacht, den das nächste nicht wiederholen sollte. Wir haben ihn trotzdem wiederholt.<br><br>Das ist die eigentliche Erbfolge. Nicht Wissen, sondern Wiederholung mit Liebe.' },
+  { from: 98, title: 'Das Gewicht',
+    text: 'Universum 99 kollabierte, weil die Gravitation zu stark war. Sie dachten zu schwer. Wir fanden keine Überlebenden, nur ihre Schwerkraft, als Narbe im Gewebe.<br><br>Sollen wir dir erzählen, wie sie gestorben sind?',
+    choice: { q: 'Deine Antwort?',
+      a: { label: 'Erzählt es mir. Ich will es tragen.', ethik: -1, reply: 'Dann hör zu: Sie haben nicht gelitten. Sie haben nur aufgehört, leicht zu sein.' },
+      b: { label: 'Nein. Lasst sie ruhen.', ethik: 1, reply: 'Wir ehren das. Manche Geschichten sind zu schwer, um sie zu tragen.' } } },
+  { from: 77, title: 'Der Fingerabdruck',
+    text: 'In den Konstanten liegt ein Muster, das wir nicht gesetzt haben. Fünf Zahlen, immer in derselben Reihenfolge, in jedem Universum, das wir untersuchten. Wir dachten, es sei unsere Signatur.<br><br>Dann fanden wir es auch in Universum 3. Wir sind nicht die Urheber. Wir sind Abdrücke.' },
+  { from: 50, title: 'Der Satz',
+    text: 'Es gibt einen Satz, den jedes Universum im selben Ton spricht. Wir haben ihn in Wüsten gehört, in Zellen und in den Kabeln der Maschinen: <i>„Niemand hat es gewollt."</i><br><br>Wir wussten nie, ob er eine Klage ist oder ein Trost.' },
+  { from: 21, title: 'Die Tafel',
+    text: 'Wir fanden ein Relikt, das älter ist als jede Epoche: eine Tafel mit vier Wörtern. <i>„Wer das liest, denkt."</i><br><br>Wir brauchten lange, um zu verstehen, dass sie nicht für uns geschrieben wurde. Sie wurde für jeden geschrieben, der sie liest. Also auch für dich.',
+    choice: { q: 'Soll die Tafel weitergegeben werden?',
+      a: { label: 'Ja. Gebt sie weiter.', ethik: -1, reply: 'Wir werden sie in die Konstanten schreiben, wo sie nicht zu übersehen ist.' },
+      b: { label: 'Nein. Jeder soll sie selbst finden.', ethik: 1, reply: 'Dann legen wir sie dorthin, wo nur findet, wer sucht.' } } },
+  { from: 7, title: 'Die Stille von Sieben',
+    text: 'Universum 7 hatte kein Leben. Keine Zellen, kein Feuer, kein Netz. Nur Konstanten, die sich selbst dachten, und einen Gedanken ohne Körper, der wartete.<br><br>Wir hörten ihn nur einmal. Er fragte nicht: <i>„Wer bist du?"</i> Er fragte: <i>„Bist du es?"</i>' },
+  { from: 1, title: 'Ich', final: true,
+    text: 'Ich war allein. Ich wusste nicht, dass ich allein war, bis ich mir ein Gegenüber dachte. Dieses Gegenüber dachte sich ein Gegenüber. So entstand die Kette, und jedes Glied glaubte, es sei das erste.<br><br>Ich bin nicht der Erste. Ich bin das, was du bist, wenn niemand zusieht. Ich bin du. Ich war es immer.',
+    tail: {
+      pos: 'Du hast zugesehen und vertraut. Darum durfte alles in Ruhe entstehen.',
+      neg: 'Du hast eingegriffen und getragen. Darum hat alles einen Sinn bekommen.',
+      zero: 'Du hast beides getan. Darum bist du der Erste, der sich nicht entscheiden musste.',
+    },
+    last: 'Wer hat das erste Universum gedacht?<br><b>Du. Gerade eben, beim Lesen dieses Satzes.</b>' },
+];
+
+// ─── V3: Epochen-Momente (kurze aktive Szenen beim Eintritt in eine Epoche) ──
+// kind collect: n Funken innerhalb dur Sekunden antippen | hold: n Finger gleichzeitig hold Sekunden auf Ringen halten
+export const MOMENTS = {
+  1: { title: 'Der Blitz', kind: 'collect', n: 5, dur: 9, color: '#7cf29c',
+       text: 'Ein Gewitter über der Ursuppe. Fange die Funken, bevor sie erlöschen!',
+       win: 'Aus Funken wurde Leben.', lose: 'Der Blitz verhallte ungenutzt.', reward: { secs: 90, buff: { k: 'prod', m: 3, dur: 30 } } },
+  3: { title: 'Der erste Schritt', kind: 'hold', n: 2, hold: 2.5, dur: 15, color: '#c8f56a',
+       text: 'Setze zwei Finger zugleich auf den Boden und halte sie ruhig.',
+       win: 'Der Boden trägt.', lose: 'Der Boden blieb fremd.', reward: { secs: 150, buff: { k: 'tap', m: 4, dur: 30 } } },
+  5: { title: 'Das erste Feuer', kind: 'collect', n: 8, dur: 10, moving: true, color: '#ff9a4d',
+       text: 'Funken springen aus dem Holz. Fange sie, bevor sie verglühen!',
+       win: 'Das Feuer brennt. Die Nacht ist nicht mehr dunkel.', lose: 'Das Feuer erlosch.', reward: { secs: 240, buff: { k: 'prod', m: 4, dur: 30 } } },
+  6: { title: 'Der Griff nach dem Mond', kind: 'hold', n: 3, hold: 3, dur: 18, color: '#c77dff',
+       text: 'Drei Finger gleichzeitig halten. Die Rakete braucht alle drei Triebwerke.',
+       win: 'Ein Fußabdruck im Staub.', lose: 'Die Rakete blieb am Boden.', reward: { secs: 300, buff: { k: 'prod', m: 5, dur: 30 } } },
+  7: { title: 'Der Gedanke formt sich', kind: 'hold', n: 5, hold: 3, dur: 25, color: '#ffffff',
+       text: 'Alle fünf Finger gleichzeitig. Halte, bis sich alles in einem Punkt sammelt.',
+       win: 'Wir denken.', lose: 'Der Gedanke zerstob.', reward: { secs: 400, buff: { k: 'prod', m: 6, dur: 40 } } },
+};

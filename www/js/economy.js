@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  Ökonomie — reine Funktionen (auch in Node testbar)
 // ─────────────────────────────────────────────────────────────
-import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS } from './data.js';
+import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS, LAWS } from './data.js';
 
 export const TUNING = {
   costBase: 12,
@@ -14,6 +14,7 @@ export const TUNING = {
   offlineHours: 8,
   resGain: 0.06,      // Resonanz-Zuwachs pro Tipp (0–1)
   resDecay: 0.3,      // Resonanz-Verfall pro Sekunde
+  entropy: 0.5,       // Sprungkosten +50 % je abgeschlossenem Durchlauf
 };
 
 export function newState() {
@@ -47,6 +48,15 @@ export function newState() {
     pendingAvatar: null,    // V2: Epoche, deren Avatar-Wahl noch aussteht
     legacy: [],             // V3: Avatare früherer Universen [{u, id}] – bleibt über Durchläufe
     relics: [],             // V3: in diesem Durchlauf gefundene Relikte (Avatar-IDs)
+    lastLaw: null,          // V3: Gesetz des vorherigen Universums (kein direkter Wiederholer)
+    law: null,              // V3: Kosmisches Gesetz dieses Universums (ab Durchlauf 2)
+    pendingLaw: false,      // V3: Gesetz wurde noch nicht angezeigt
+    letters: 0,             // V3: gelesene Briefe der Vorgänger (bleibt über Durchläufe)
+    letterChoices: {},      // V3: Antworten auf Briefe {Briefindex: 'a'|'b'} (bleibt)
+    ethik: 0,               // V3: +1 Zurückhaltung/Vertrauen, −1 Eingreifen/Offenheit (bleibt)
+    pendingLetter: null,    // V3: Index des Briefs, der noch gelesen werden muss
+    moments: [],            // V3: in diesem Durchlauf gespielte Epochen-Momente
+    pendingMoment: null,    // V3: Epoche, deren Moment noch aussteht
   };
 }
 
@@ -56,6 +66,7 @@ export function baseCost(i) {
   return TUNING.costBase * Math.pow(TUNING.costTier, i);
 }
 
+export const lawFx = (state) => (state.law && LAWS.find((l) => l.id === state.law)?.fx) || {};
 export const hasTrait = (state, id) => state.traits.includes(id);
 // Avatar-Auren: Produkt aller Multiplikatoren der Art k
 const echo = (v) => (v >= 1 ? 1 + (v - 1) / 2 : 1 - (1 - v) / 2);   // Relikt-Echo: halbe Stärke
@@ -71,6 +82,7 @@ export function costMult(state, i) {
   const e = epochOf(i);
   let m = 1;
   if (hasTrait(state, 'sparsam')) m *= 0.85;
+  m *= lawFx(state).cost ?? 1;
   m *= auraMult(state, 'cost');
   if (state.choices.oxygen === 'b' && (e === 2 || e === 3)) m *= 0.8;
   return m;
@@ -94,7 +106,8 @@ export function leapCost(state, e) {
   if (e === 7) c *= 3;
   if (e === 7 && state.choices.button === 'b') c *= 0.7;
   if (hasTrait(state, 'erbe')) c *= 0.8;
-  c *= auraMult(state, 'leap');
+  c *= auraMult(state, 'leap') * (lawFx(state).leap ?? 1);
+  c *= 1 + TUNING.entropy * state.runsDone;   // Entropie: spätere Universen brauchen mehr
   return c;
 }
 
@@ -116,6 +129,7 @@ export function epochMult(state, e) {
   if (hasTrait(state, 'wuchern')) m *= 1.25;
   if (hasTrait(state, 'schwarm')) m *= 0.9;
   if (hasTrait(state, 'vorhut') && e === state.epoch) m *= 2;
+  for (const [a, b, f] of lawFx(state).epochs || []) if (e >= a && e <= b) m *= f;
   const k = state.constants;
   if (e <= 1) m *= 1 + 0.15 * k.g;
   if (e >= 2 && e <= 4) m *= 1 + 0.12 * k.em;
@@ -124,7 +138,7 @@ export function epochMult(state, e) {
 }
 
 export function globalMult(state) {
-  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone) * auraMult(state, 'prod');
+  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone) * auraMult(state, 'prod') * (lawFx(state).prod ?? 1);
 }
 
 export function genProd(state, i) {
@@ -144,7 +158,7 @@ export function tapMult(state) {
   if (state.intent === 'wille') m *= 2;
   if (hasTrait(state, 'schwarm')) m *= 2;
   if (hasTrait(state, 'traeumer')) m *= 0.8;
-  return m * buffMult(state, 'tap') * auraMult(state, 'tap');
+  return m * buffMult(state, 'tap') * auraMult(state, 'tap') * (lawFx(state).tap ?? 1);
 }
 
 // Resonanz: schnelles Tippen (vor allem mit mehreren Fingern) lädt einen Tipp-Multiplikator auf
@@ -157,10 +171,10 @@ export function tapValue(state, pps = prodPerSec(state), res = 0) {
 }
 
 // Mutationen: Häufigkeit, Lebensdauer, Stärke
-export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1);
+export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1) / (lawFx(state).mutFreq ?? 1);
 export const mutationLife = (state) => 9 * (hasTrait(state, 'mutant') ? 1.5 : 1);
 export const mutationPower = (state, m) => 1 + (m - 1) * (hasTrait(state, 'glueck') ? 1.5 : 1) * auraMult(state, 'mut');
-export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1) * auraMult(state, 'offline');
+export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1) * auraMult(state, 'offline') * (lawFx(state).offline ?? 1);
 
 export function earn(state, amount) {
   state.complexity += amount;
@@ -171,7 +185,7 @@ export function earn(state, amount) {
 export function catastropheLoss(state, frac) {
   let f = state.intent === 'harmonie' ? frac / 2 : frac;
   if (hasTrait(state, 'zaeh')) f /= 2;
-  f *= auraMult(state, 'cata');
+  f *= auraMult(state, 'cata') * (lawFx(state).cata ?? 1);
   state.complexity *= (1 - f);
 }
 

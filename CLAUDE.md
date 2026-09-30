@@ -74,4 +74,12 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - Test: `python3 tools/test_erbe.py <ordner>` (Kauf bei gehaltenen Fingern per CDP, Relikte, Echo, Vermächtnis). Hinweis CDP: `touchEnd` beendet nur die genannten Finger, `[]` beendet alle.
 - Dateiname der CI-APK: `release/the-singularity-x144-v3.apk`.
 
+### V3.1: Story & Abwechslung
+- **Briefe der Vorgänger** (`LETTERS`, 10 Stück, Universum 143 → 1): ab Durchlauf 2 kommt beim Eintritt in Landgang (Epoche 4) und Technosphäre (Epoche 7) je ein Brief, der Reihe nach (`S.letters`, bleibt über Durchläufe). Einige haben Antworten (`ethik` ±1, bleibt). Der 10. Brief („Ich", Universum 1) hat je nach Ethik eine andere Schlusspassage und schließt den Bogen („Ich bin du. Ich war es immer."). Archiv im Fragmente-Tab.
+- **Kosmische Gesetze** (`LAWS`, 8 Stück): ab Durchlauf 2 bekommt jedes Universum zufällig eines (nicht dasselbe wie zuvor), Ankündigung per Fenster, Anzeige in der Zeitlinie. Wirkung über `lawFx(state)` in `economy.js` (prod/tap/cost/leap/cata/offline/mutFreq/epochs).
+- **Epochen-Momente** (`MOMENTS`): beim Eintritt in Epoche 2, 4, 6, 7, 8 startet eine kurze Szene im Vollbild (Panel blendet aus): *collect* (Funken fangen, ggf. beweglich) oder *hold* (n Finger gleichzeitig auf Ringen halten – bis 5 Finger). Belohnung: Sofortertrag + Buff; Verpassen gibt nur Trost. Logik `startMoment/updateMoment/endMoment` (main.js), Darstellung/Treffer `World.startMoment/hitMoment/_updateMoment` (render.js).
+- **Entropie:** `TUNING.entropy` (0,5): Sprungkosten +50 % je abgeschlossenem Durchlauf, bremst späte Läufe etwas.
+- **Story-Warteschlange** `checkQueue()`: Gesetz → Brief → Moment → Avatar, nie gleichzeitig mit Merkmal/Kataklysmus/Fenster.
+- Test: `python3 tools/test_story.py <ordner>`. Alle Test-Zustände setzen `moments:[1..7]`, `letters:10`, `pendingLaw:false`, damit nichts dazwischenfunkt.
+
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.

@@ -40,6 +40,8 @@ export class World {
     this.glitch = null;
     this.mutation = null;   // V2: leuchtender Mutations-Glimmer
     this.relics = [];       // V3: Relikte {id, e, x, y}, sichtbar nur auf ihrer Zoom-Ebene
+    this.moment = null;     // V3: aktiver Epochen-Moment
+    this.touches = [];      // aktuelle Fingerpositionen (von main.js gesetzt)
     this.mode = 'play';   // play | void | converge | bang
     this.converge = 0;
     this.bang = null;
@@ -176,6 +178,74 @@ export class World {
     return null;
   }
 
+  // ── Epochen-Momente ──────────────────────────────────────────
+  startMoment(def) {
+    const { w, h } = this, items = [];
+    if (def.kind === 'collect') {
+      for (let i = 0; i < def.n; i++) {
+        const sp = def.moving ? 38 + Math.random() * 40 : 0, a = Math.random() * TAU;
+        items.push({ x: 60 + Math.random() * (w - 120), y: 190 + Math.random() * (h - 420), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 30, alive: true, ph: Math.random() * 6 });
+      }
+    } else {
+      const R = Math.min(w * 0.3, 130), cy = h * 0.44;
+      for (let i = 0; i < def.n; i++) {
+        const a = -Math.PI / 2 + i / def.n * TAU;
+        items.push(def.n === 1 ? { x: w / 2, y: cy, r: 40 } : { x: w / 2 + Math.cos(a) * R, y: cy + Math.sin(a) * R, r: def.n > 3 ? 34 : 40 });
+      }
+    }
+    this.moment = { ...def, items, t: 0, prog: 0, left: def.n, done: false, failed: false };
+  }
+  hitMoment(x, y) {
+    const m = this.moment; if (!m || m.done || m.failed) return false;
+    for (const it of m.items) {
+      if (m.kind === 'collect' && it.alive && Math.hypot(x - it.x, y - it.y) < it.r + 16) {
+        it.alive = false; m.left--; this.burst(it.x, it.y, m.color, 26, 1.3);
+        if (m.left <= 0) m.done = true;
+        return true;
+      }
+      if (m.kind === 'hold' && Math.hypot(x - it.x, y - it.y) < it.r + 22) return true;
+    }
+    return false;
+  }
+  _updateMoment(dt) {
+    const m = this.moment; if (!m || m.done || m.failed) return;
+    m.t += dt;
+    if (m.kind === 'collect') {
+      for (const it of m.items) if (it.alive && m.moving) {
+        it.x += it.vx * dt; it.y += it.vy * dt;
+        if (it.x < 40 || it.x > this.w - 40) it.vx *= -1;
+        if (it.y < 170 || it.y > this.h - 200) it.vy *= -1;
+      }
+    } else {
+      let all = true;
+      for (const it of m.items) { it.cov = this.touches.some((p) => Math.hypot(p.x - it.x, p.y - it.y) < it.r + 22); if (!it.cov) all = false; }
+      m.prog = all ? Math.min(m.hold, m.prog + dt) : Math.max(0, m.prog - dt * 1.2);
+      if (m.prog >= m.hold) m.done = true;
+    }
+    if (!m.done && m.t >= m.dur) m.failed = true;
+  }
+  _drawMoment() {
+    const g = this.g, m = this.moment, t = this.t, c = m.color;
+    g.save(); g.globalCompositeOperation = 'lighter';
+    for (const it of m.items) {
+      if (m.kind === 'collect') {
+        if (!it.alive) continue;
+        const p = 1 + Math.sin(t * 6 + it.ph) * 0.15;
+        this._halo(g, it.x, it.y, 46 * p, c, 0.5);
+        g.fillStyle = '#ffffff'; g.beginPath(); g.arc(it.x, it.y, 7 * p, 0, TAU); g.fill();
+        g.strokeStyle = hexA(c, 0.7); g.lineWidth = 2; g.beginPath(); g.arc(it.x, it.y, 18 * p, 0, TAU); g.stroke();
+      } else {
+        const cov = !!it.cov, p = m.prog / m.hold;
+        if (cov) this._halo(g, it.x, it.y, it.r * 2.4, c, 0.45);
+        g.lineWidth = 3; g.strokeStyle = hexA(c, cov ? 0.95 : 0.45 + Math.sin(t * 4) * 0.15);
+        g.beginPath(); g.arc(it.x, it.y, it.r, 0, TAU); g.stroke();
+        g.strokeStyle = '#ffffff'; g.lineWidth = 5;
+        g.beginPath(); g.arc(it.x, it.y, it.r + 8, -Math.PI / 2, -Math.PI / 2 + TAU * p); g.stroke();
+      }
+    }
+    g.restore();
+  }
+
   // ── Schleife ─────────────────────────────────────────────────
   update(dt) {
     this.t += dt;
@@ -189,6 +259,7 @@ export class World {
     this.shake = Math.max(0, this.shake - dt * 2);
     if (this.glitch) { this.glitch.life -= dt; if (this.glitch.life <= 0) this.glitch = null; }
     if (this.mutation) { this.mutation.life -= dt; if (this.mutation.life <= 0) this.mutation = null; }
+    this._updateMoment(dt);
     if (this.bang) this.bang.t += dt;
   }
 
@@ -235,6 +306,7 @@ export class World {
     if (this.glitch) this._drawGlitch();
     if (this.mutation) this._drawMutation();
     if (this.relics.length) this._drawRelics();
+    if (this.moment && !this.moment.done && !this.moment.failed) this._drawMoment();
     if (this.flash > 0) {
       g.setTransform(d, 0, 0, d, 0, 0);
       g.globalAlpha = clamp(this.flash, 0, 1); g.fillStyle = this.flashColor;

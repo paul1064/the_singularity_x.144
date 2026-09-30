@@ -16,7 +16,8 @@ def base(**kw):
     s = {'v': 1, 'universe': 144, 'runsDone': 0, 'complexity': 5000, 'runEarned': 1e4, 'lifetime': 1e4, 'owned': owned, 'epoch': 0,
          'finished': False, 'choices': {}, 'pendingEvent': None, 'fragments': [], 'constants': {'g': 0, 's': 0, 'em': 0, 'c': 0, 'x': 0},
          'intent': None, 'timeline': [], 'voiceEntered': [], 'taps': 0, 'playTime': 600, 'lastSeen': int(time.time() * 1000),
-         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True}
+         'settings': {'music': False, 'sfx': False, 'vibrate': False}, 'introSeen': True,
+         'moments': [1, 2, 3, 4, 5, 6, 7], 'letters': 10, 'pendingLaw': False, 'law': 'nebel'}
     s.update(kw); return s
 
 with sync_playwright() as p:

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  THE SINGULARITY x.144 — Spielablauf & Oberfläche
 // ─────────────────────────────────────────────────────────────
-import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED, RELIC_TEXT } from './data.js';
+import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED, RELIC_TEXT, LAWS, LETTERS, MOMENTS } from './data.js';
 import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
@@ -176,14 +176,15 @@ function renderTimeline() {
   const box = $('timeline');
   const traitsHtml = S.traits.length ? `<div class="traits-head">MERKMALE</div>${S.traits.map((id) => { const t = TRAITS.find((x) => x.id === id); return `<div class="trait"><b>${t.name}</b><small>${t.effect}</small></div>`; }).join('')}` : '';
   const relHtml = S.relics.length ? `<div class="traits-head">RELIKTE ${S.relics.length}/${E.legacyIds(S).length}</div>${S.relics.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:#ffb347"><b>${o.name}</b><small>Echo: die Hälfte von „${o.aura.text}“</small></div>`; }).join('')}` : '';
+  const lawHtml = S.law ? (() => { const l = LAWS.find((x) => x.id === S.law); return `<div class="traits-head">GESETZ DES UNIVERSUMS</div><div class="law-card"><b>${l.name}</b><small>${l.text}</small></div>`; })() : '';
   const avHtml = S.avatars.length ? `<div class="traits-head">AVATARE</div>${S.avatars.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:${EPOCHS[o.epoch].color}"><b>${o.name}</b><small>${o.aura.text}</small><small>„${o.power.name}": ${o.power.text} · alle ${o.power.cd} s</small></div>`; }).join('')}` : '';
-  if (!S.timeline.length) { box.innerHTML = avHtml + relHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
+  if (!S.timeline.length) { box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
   let html = '', u = null;
   for (const t of S.timeline) {
     if (t.u !== u) { u = t.u; html += `<div class="tl-u">UNIVERSUM ${u}</div>`; }
     html += `<div class="tl ${t.kind === 'choice' ? 'choice' : ''}" style="--c:${t.c}">${t.text}</div>`;
   }
-  box.innerHTML = avHtml + relHtml + traitsHtml + ((avHtml || relHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
+  box.innerHTML = lawHtml + avHtml + relHtml + traitsHtml + ((lawHtml || avHtml || relHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
   box.parentElement.scrollTop = box.parentElement.scrollHeight;
 }
 
@@ -196,6 +197,10 @@ function renderFragments() {
       ? `<div class="frag"><small>FRAGMENT ${i + 1}/${FRAGMENTS.length}</small>${f}</div>`
       : `<div class="frag locked"><small>FRAGMENT ${i + 1}/${FRAGMENTS.length}</small>▒▒▒ ▒▒▒▒▒ ▒▒ ▒▒▒▒▒▒</div>`;
   });
+  if (S.letters) {
+    html += `<div class="traits-head" style="margin-top:16px">BRIEFE DER VORGÄNGER ${S.letters}/${LETTERS.length}</div>`;
+    html += LETTERS.slice(0, S.letters).map((L, i) => `<div class="frag letter"><small>UNIVERSUM ${L.from} · ${L.title.toUpperCase()}</small>${letterBody(i)}${S.letterChoices[i] ? `<br><br><small>Deine Antwort: ${L.choice[S.letterChoices[i]].label}</small>` : ''}</div>`).join('');
+  }
   box.innerHTML = html;
 }
 
@@ -253,6 +258,7 @@ async function doLeap() {
   voiceEnter(S.epoch);
   await wait(2600);
   cinematic = false;
+  queueStory();
   const ev = EVENTS.find((x) => x.afterLeap === from);
   if (ev && !S.choices[ev.id]) { S.pendingEvent = ev.id; save(); }
   // erst das Merkmal wählen, danach ggf. der Kataklysmus
@@ -347,6 +353,7 @@ cv.addEventListener('pointerdown', (e) => {
   if (!running || cinematic || world.mode !== 'play' || pointers.size > MAX_FINGERS) return;
   if (world.hitGlitch(e.clientX, e.clientY)) { collectFragment(); return; }
   if (world.hitMutation(e.clientX, e.clientY)) { collectMutation(); return; }
+  if (world.moment && world.hitMoment(e.clientX, e.clientY)) return;
   const rel = world.hitRelic(e.clientX, e.clientY);
   if (rel) { collectRelic(rel.id); return; }
   tap(e.clientX, e.clientY);
@@ -461,7 +468,7 @@ function updateDock() {
   }
 }
 function firePower(id) {
-  if (cinematic || S.finished || modalOpen()) return;
+  if (cinematic || S.finished || modalOpen() || world.moment) return;
   const o = AVATAR_OPTS[id], cd = S.avatarCd[id] || 0;
   if (cd > 0) { vibrate(15); world.floater(world.cx, world.cy - 60, `${o.power.name} · noch ${Math.ceil(cd)} s`, '#ffffff'); return; }
   S.avatarCd[id] = o.power.cd;
@@ -486,6 +493,106 @@ function firePower(id) {
 }
 // Abklingzeiten laufen mit der Spielzeit (und offline)
 function tickAvatarCd(sec) { for (const id of S.avatars) if (S.avatarCd[id] > 0) S.avatarCd[id] = Math.max(0, S.avatarCd[id] - sec); }
+
+// ── V3: Story-Warteschlange (Gesetz → Brief → Moment → Avatar) ─
+function checkQueue() {
+  if (!running || S.finished || cinematic || modalOpen() || world.moment || S.pendingEvent || S.pendingTrait || S.pendingAvatar) return;
+  if (S.pendingLaw) { showLaw(); return; }
+  if (S.pendingLetter !== null) { showLetter(S.pendingLetter); return; }
+  if (S.pendingMoment) { startMoment(S.pendingMoment); return; }
+  checkAvatars();
+}
+// beim Eintritt in eine Epoche: Brief der Vorgänger (ab Durchlauf 2, in Landgang und Technosphäre) und Epochen-Moment vormerken
+function queueStory() {
+  if (creator() && (S.epoch === 3 || S.epoch === 6) && S.pendingLetter === null && S.letters < LETTERS.length) S.pendingLetter = S.letters;
+  if (MOMENTS[S.epoch] && !S.moments.includes(S.epoch)) S.pendingMoment = S.epoch;
+  save();
+}
+
+// ── V3: Kosmische Gesetze ─────────────────────────────────────
+function ensureLaw() {
+  if (!creator() || S.law) return;
+  S.law = pick(LAWS.filter((l) => l.id !== S.lastLaw)).id; S.pendingLaw = true; save();
+}
+function showLaw() {
+  const l = LAWS.find((x) => x.id === S.law);
+  music.boom(); world.doFlash('#c77dff', 0.3);
+  openModal(`<div class="kicker" style="color:#c77dff">DAS GESETZ VON UNIVERSUM ${S.universe}</div><h2>${l.name}</h2><p>${l.text}</p><p style="font-size:12.5px;color:var(--muted)">Jedes Universum, das du denkst, folgt seinem eigenen Gesetz.</p><button class="btn">Verstanden</button>`, false);
+  $('modalCard').querySelector('.btn').onclick = () => { S.pendingLaw = false; closeModal(); save(); if (tab === 'time') renderTimeline(); };
+}
+
+// ── V3: Briefe der Vorgänger ──────────────────────────────────
+function letterBody(i) {
+  const L = LETTERS[i];
+  if (!L.final) return L.text;
+  const k = S.ethik > 0 ? 'pos' : S.ethik < 0 ? 'neg' : 'zero';
+  return `${L.text}<br><br>${L.tail[k]}<br><br>${L.last}`;
+}
+function showLetter(idx) {
+  const L = LETTERS[idx];
+  if (!L) { S.pendingLetter = null; return; }
+  music.boom(); vibrate([20, 40, 20]);
+  const head = `<div class="kicker" style="color:#ffd166">BRIEF · AUS UNIVERSUM ${L.from}</div><h2>${L.title}</h2><p class="quote">${letterBody(idx)}</p>`;
+  if (L.choice) {
+    openModal(`${head}<p style="font-size:13px;color:var(--muted);margin:10px 0 6px">${L.choice.q}</p><button class="choice-btn" data-k="a"><b>${L.choice.a.label}</b></button><button class="choice-btn" data-k="b"><b>${L.choice.b.label}</b></button>`, false);
+    for (const b of $('modalCard').querySelectorAll('.choice-btn')) b.onclick = () => finishLetter(idx, b.dataset.k);
+  } else {
+    openModal(`${head}<button class="btn">Weiter</button>`, false);
+    $('modalCard').querySelector('.btn').onclick = () => finishLetter(idx);
+  }
+}
+function finishLetter(idx, k) {
+  const L = LETTERS[idx];
+  if (S.letters === idx) S.letters = idx + 1;
+  S.pendingLetter = null;
+  if (k) { S.letterChoices[idx] = k; S.ethik += L.choice[k].ethik; }
+  addTimeline(`Brief aus Universum ${L.from}: <b>${L.title}</b>${k ? `<small>${L.choice[k].label}</small>` : ''}`, 'choice', '#ffd166');
+  save(); renderFragments();
+  if (k) {
+    openModal(`<div class="kicker" style="color:#ffd166">ANTWORT AUS UNIVERSUM ${L.from}</div><p class="quote">${L.choice[k].reply}</p><button class="btn">Weiter</button>`, false);
+    $('modalCard').querySelector('.btn').onclick = closeModal;
+  } else closeModal();
+  if (L.final) { world.doFlash('#ffffff', 1); music.boom(true); say(['Ich bin du. Ich war es immer.'], 'plural'); }
+}
+
+// ── V3: Epochen-Momente ───────────────────────────────────────
+let momentTxt = '';
+function startMoment(e) {
+  const def = MOMENTS[e];
+  world.startMoment({ ...def, e });
+  document.body.classList.add('moment');
+  const bar = $('momentBar'); bar.classList.remove('hidden');
+  const t = bar.querySelector('b'); t.textContent = def.title; t.style.color = def.color;
+  bar.querySelector('span').textContent = def.text; momentTxt = def.text;
+  music.boom(); vibrate(30); world.doFlash(def.color, 0.3);
+}
+function updateMoment() {
+  const m = world.moment; if (!m) return;
+  const bar = $('momentBar');
+  bar.querySelector('.bar i').style.width = `${Math.max(0, 1 - m.t / m.dur) * 100}%`;
+  const txt = m.kind === 'collect' ? `${m.n - m.left} / ${m.n} Funken` : (m.prog > 0 ? `Halten … ${m.prog.toFixed(1).replace('.', ',')} / ${m.hold} s` : m.text);
+  if (txt !== momentTxt) { momentTxt = txt; bar.querySelector('span').textContent = txt; }
+  if (m.done || m.failed) endMoment(m.done);
+}
+function endMoment(win) {
+  const m = world.moment; world.moment = null;
+  document.body.classList.remove('moment'); $('momentBar').classList.add('hidden');
+  S.moments.push(m.e); S.pendingMoment = null;
+  const r = m.reward, gain = E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0);
+  E.earn(S, gain);
+  if (win) {
+    S.buffs.push({ id: 'moment' + m.e, n: m.title, k: r.buff.k, m: r.buff.m, t: r.buff.dur });
+    music.boom(true); vibrate([40, 40, 80]); world.doFlash(m.color, 0.7); world.burst(world.cx, world.cy, m.color, 70, 2);
+    world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, m.color);
+    addTimeline(`Moment: <b>${m.title}</b><small>${m.win}</small>`, 'choice', m.color);
+    say([m.win]);
+  } else {
+    world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, '#ffffff');
+    addTimeline(`Moment verpasst: <b>${m.title}</b><small>${m.lose}</small>`, 'choice', '#8a93b8');
+    say([m.lose]);
+  }
+  updateHud(); updateBuffs(); save();
+}
 
 // ── V3: Relikte (die Avatare früherer Universen) ──────────────
 // Jeder Avatar, den du je gewählt hast, liegt im nächsten Universum als Relikt auf seiner Zoom-Ebene.
@@ -564,15 +671,15 @@ function loop(now) {
     if (performance.now() - lastTapAt > 350) res = Math.max(0, res - E.TUNING.resDecay * dt);
     tickAvatarCd(dt);
     if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
-    if (!cinematic && !modalOpen()) {
+    if (!cinematic && !modalOpen() && !world.moment) {
       nextMut -= dt;
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); checkAvatars(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen()) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
-    if (!cinematic && !modalOpen()) {
+    if (!cinematic && !modalOpen() && !world.moment) {
       nextGlitch -= dt;
       if (nextGlitch <= 0 && !world.glitch && fragmentPool().length) {
         world.spawnGlitch();
@@ -582,7 +689,9 @@ function loop(now) {
       if (nextVoice <= 0 && !voiceBusy) { say([pick(voiceSet()[S.epoch].idle)]); nextVoice = 45 + Math.random() * 40; }
     }
   }
+  world.touches = [...pointers.values()];
   world.update(dt);
+  updateMoment();
   if (Math.abs(world.z - world.zTarget) > 0.01 && Math.random() < 0.1) updateRail();
   world.draw();
   requestAnimationFrame(loop);
@@ -771,6 +880,7 @@ async function bigBang(k, intent) {
     universe: S.universe + 1, runsDone: S.runsDone + 1, lifetime: S.lifetime,
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
+    letters: S.letters, letterChoices: S.letterChoices, ethik: S.ethik, lastLaw: S.law,
     legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
@@ -782,6 +892,7 @@ async function bigBang(k, intent) {
   ov.classList.add('hidden'); ov.innerHTML = '';
   document.body.classList.remove('cine-mode');
   voiceBusy = false; voiceQ = [];
+  ensureLaw();
   enterPlay(0.9);
   cinematic = false;
   voiceEnter(0);
@@ -828,6 +939,7 @@ window.addEventListener('resize', () => world.resize());
   await titleScreen(offline);
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
+  ensureLaw();
   const showPending = () => { if (S.pendingEvent) { const ev = EVENTS.find((x) => x.id === S.pendingEvent); if (ev) showEvent(ev); } };
   if (S.pendingTrait) offerTrait(showPending); else if (S.pendingAvatar) showAvatar(S.pendingAvatar); else showPending();
   say(voiceSet()[S.epoch].idle.slice(0, 1));
@@ -846,6 +958,7 @@ if (location.search.includes('dev')) {
     draft() { offerTrait(); },
     fire(id) { firePower(id); },
     bigBang(k, i) { return bigBang(k, i); },
+    queue: checkQueue,
     checkAvatars,
     get res() { return res; },
     world,
