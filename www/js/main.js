@@ -603,6 +603,17 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 window.addEventListener('pagehide', save);
+
+// Android (Capacitor): Zurück-Taste speichert und schickt die App in den Hintergrund,
+// statt sie hart zu schließen. Offene Fenster werden zuerst geschlossen.
+const capApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+if (capApp) {
+  capApp.addListener('backButton', () => {
+    if (modalOpen() && $('modal').onclick) { closeModal(); return; }
+    save();
+    capApp.minimizeApp();
+  });
+}
 window.addEventListener('resize', () => world.resize());
 
 // ── Start ─────────────────────────────────────────────────────

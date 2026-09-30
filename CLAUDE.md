@@ -9,7 +9,7 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 
 ## Technik
 - HTML5 Canvas + Vanilla-JavaScript (ES-Module), **kein Framework, kein Bundler**. Alles liegt in `www/`.
-- Ziel: installierbare **Android-APK** via **Capacitor** (noch nicht eingerichtet, siehe Status).
+- Android-APK via **Capacitor 7** (`capacitor.config.json`, Projekt in `android/`, App-ID `com.paul1064.singularity144`).
 - Offline-fähig: keine CDNs, Schriften liegen in `www/fonts/`.
 - Speicherstand: `localStorage` Schlüssel `singularity-x144`.
 
@@ -33,6 +33,14 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 ## Balance (aktuell)
 - Durchlauf 1 ≈ 68 min bei optimalem Spiel mit 2 Taps/s, Durchlauf 2 ≈ 30 min.
 - Stellschrauben in `TUNING` (economy.js). Nach Änderungen Simulator laufen lassen.
+
+## Android-Build
+- Lokal: `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (braucht Android SDK 35, JDK 21).
+- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk`.
+- Nach Änderungen an `www/` immer `npx cap sync android`. Icon/Splash: `python3 tools/make-assets.py && npx capacitor-assets generate --android`.
+- Zurück-Taste (in `main.js`): schließt offenes Fenster, sonst speichern + App minimieren.
+- Screenshots: `python3 tools/screens.py <ordner>` (Ergebnisse in `docs/screens/`).
+- In der Cloud-Sitzung sind `dl.google.com` (Android SDK) und teils Maven Central gesperrt → APK dort nur über GitHub Actions.
 
 ## Status
 Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
