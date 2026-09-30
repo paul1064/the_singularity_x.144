@@ -36,7 +36,7 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 
 ## Android-Build
 - Lokal: `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (braucht Android SDK 35, JDK 21).
-- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v1.apk` (Bot-Commit „APK bauen [skip ci]").
+- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v3.apk` (Bot-Commit „APK bauen [skip ci]").
 - Nach Änderungen an `www/` immer `npx cap sync android`. Icon/Splash: `python3 tools/make-assets.py && npx capacitor-assets generate --android`.
 - Zurück-Taste (in `main.js`): schließt offenes Fenster, sonst speichern + App minimieren.
 - Screenshots: `python3 tools/screens.py <ordner>` (Ergebnisse in `docs/screens/`).
@@ -67,5 +67,11 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - Dock mit leuchtenden Kreisen unter dem HUD, Abklingzeit als Kreissegment; Avatare pro Durchlauf (wie Merkmale), in der Zeitlinie gelistet.
 - Balance (ideal gespielt, ohne Mutationen/Merkmale): `node tools/simulate.mjs --avatare` → ca. 37–45 min statt 68 min (`WEG=1` für die jeweils 2. Wege). Stellschrauben: Auren, `cd`, Burst-Werte in `AVATARS`.
 - Test: `python3 tools/test_avatare.py <ordner>`.
+
+### V3.0: Das Erbe (Teil 1)
+- **Button-Eingabe über `onTap` (pointerup)** statt `click`: Android erzeugt kein `click`, solange andere Finger gedrückt sind. So lassen sich Upgrades kaufen, während drei Finger weiter die Welt antippen. Wischen (>14 px oder `pointercancel`) kauft nichts.
+- **Vermächtnis & Relikte:** Beim Urknall werden die gewählten Avatare in `S.legacy` (bleibt über Durchläufe) gespeichert. Im neuen Universum liegt jeder je gewählte Avatar (je `id` einmal) als **Relikt** in seiner Epoche: bernsteinfarbene Raute, nur auf der passenden Zoom-Ebene sichtbar/antippbar (Rail-Punkt pulsiert amber). Einsammeln → Lore-Fenster (`RELIC_TEXT`) + **Echo** = halbe Aura-Wirkung für den Durchlauf (`auraMult`). Anreiz: pro Durchlauf andere Avatare wählen, Relikt-Sammlung erweitern.
+- Test: `python3 tools/test_erbe.py <ordner>` (Kauf bei gehaltenen Fingern per CDP, Relikte, Echo, Vermächtnis). Hinweis CDP: `touchEnd` beendet nur die genannten Finger, `[]` beendet alle.
+- Dateiname der CI-APK: `release/the-singularity-x144-v3.apk`.
 
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.

@@ -76,6 +76,8 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 #rail button.unlocked i { background: var(--c); box-shadow: 0 0 8px var(--c); }
 #rail button.current i { width: 13px; height: 13px; box-shadow: 0 0 14px var(--c); }
 #rail button.locked { pointer-events: none; }
+#rail button.relic i { box-shadow: 0 0 0 3px rgba(255,179,71,0.55), 0 0 14px #ffb347; animation: relicPulse 1.8s ease-in-out infinite; }
+@keyframes relicPulse { 50% { box-shadow: 0 0 0 5px rgba(255,179,71,0.25), 0 0 20px #ffb347; } }
 
 /* ── Die Stimme ──────────────────────── */
 #voice {

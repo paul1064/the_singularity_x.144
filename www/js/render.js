@@ -39,6 +39,7 @@ export class World {
     this.shake = 0;
     this.glitch = null;
     this.mutation = null;   // V2: leuchtender Mutations-Glimmer
+    this.relics = [];       // V3: Relikte {id, e, x, y}, sichtbar nur auf ihrer Zoom-Ebene
     this.mode = 'play';   // play | void | converge | bang
     this.converge = 0;
     this.bang = null;
@@ -165,6 +166,16 @@ export class World {
     return true;
   }
 
+  addRelic(id, e) {
+    const m = 60;
+    this.relics.push({ id, e, x: m + Math.random() * (this.w - 2 * m - 40), y: 260 + Math.random() * Math.max(40, this.h * 0.5 - 260) });
+  }
+  relicVis(r) { return Math.max(0, 1 - Math.abs(this.z - r.e) / 0.3); }
+  hitRelic(x, y) {
+    for (const r of this.relics) if (this.relicVis(r) > 0.5 && Math.hypot(x - r.x, y - r.y) < 50) return r;
+    return null;
+  }
+
   // ── Schleife ─────────────────────────────────────────────────
   update(dt) {
     this.t += dt;
@@ -223,6 +234,7 @@ export class World {
     g.globalAlpha = 1;
     if (this.glitch) this._drawGlitch();
     if (this.mutation) this._drawMutation();
+    if (this.relics.length) this._drawRelics();
     if (this.flash > 0) {
       g.setTransform(d, 0, 0, d, 0, 0);
       g.globalAlpha = clamp(this.flash, 0, 1); g.fillStyle = this.flashColor;
@@ -579,6 +591,21 @@ export class World {
       g.fillStyle = p.c; g.beginPath(); g.arc(this.cx + Math.cos(p.a) * d, this.cy + Math.sin(p.a) * d, p.s, 0, TAU); g.fill();
     }
     g.restore();
+  }
+
+  // Relikt: pulsierende bernsteinfarbene Raute mit Glanzlinien
+  _drawRelics() {
+    const g = this.g, t = this.t, c = '#ffb347';
+    for (const r of this.relics) {
+      const v = this.relicVis(r); if (v <= 0) continue;
+      const s = 12 + Math.sin(t * 3 + r.x) * 1.5;
+      g.save(); g.globalAlpha = v; g.globalCompositeOperation = 'lighter';
+      this._halo(g, r.x, r.y, 44 + Math.sin(t * 2.4) * 6, c, 0.35);
+      g.fillStyle = hexA(c, 0.85); g.beginPath();
+      g.moveTo(r.x, r.y - s * 1.3); g.lineTo(r.x + s, r.y); g.lineTo(r.x, r.y + s * 1.3); g.lineTo(r.x - s, r.y); g.closePath(); g.fill();
+      g.strokeStyle = hexA('#ffffff', 0.7); g.lineWidth = 1.5; g.stroke();
+      g.restore();
+    }
   }
 
   // Doppelhelix in einem Ring, dessen Bogen die verbleibende Zeit zeigt

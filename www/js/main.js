@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  THE SINGULARITY x.144 — Spielablauf & Oberfläche
 // ─────────────────────────────────────────────────────────────
-import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED } from './data.js';
+import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED, RELIC_TEXT } from './data.js';
 import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
@@ -44,6 +44,15 @@ function save() {
 }
 
 // ── Hilfen ────────────────────────────────────────────────────
+// Tippen auf Buttons über pointerup statt click: Android erzeugt kein click, solange andere Finger
+// (z. B. beim Mehrfinger-Tippen auf der Welt) gedrückt sind. Scrollen löst pointercancel aus → kein Kauf.
+function onTap(el, fn) {
+  let id = null, x0 = 0, y0 = 0;
+  el.addEventListener('pointerdown', (e) => { id = e.pointerId; x0 = e.clientX; y0 = e.clientY; });
+  el.addEventListener('pointerup', (e) => { if (e.pointerId !== id) return; id = null; if (Math.hypot(e.clientX - x0, e.clientY - y0) < 14) fn(e); });
+  el.addEventListener('pointercancel', () => { id = null; });
+  el.addEventListener('click', (e) => { if (e.detail === 0) fn(e); });   // Tastatur / Screenreader
+}
 const creator = () => S.runsDone > 0;
 const genName = (i) => (S.choices.asteroid === 'b' && GENERATORS[i].alt) ? GENERATORS[i].alt : GENERATORS[i].name;
 const genDesc = (i) => (S.choices.asteroid === 'b' && GENERATORS[i].altDesc) ? GENERATORS[i].altDesc : GENERATORS[i].desc;
@@ -93,7 +102,7 @@ function buildRail() {
     b.style.setProperty('--c', ep.color);
     b.setAttribute('aria-label', ep.scale);
     b.innerHTML = '<i></i>';
-    b.onclick = () => { if (e <= S.epoch) { world.zTarget = e; world.userZoom = e !== S.epoch; world.zRate = 3; } };
+    onTap(b, () => { if (e <= S.epoch) { world.zTarget = e; world.userZoom = e !== S.epoch; world.zRate = 3; } });
     rail.appendChild(b);
   });
   updateRail();
@@ -101,7 +110,7 @@ function buildRail() {
 function updateRail() {
   const cur = Math.round(world.zTarget);
   [...$('rail').children].forEach((b, e) => {
-    b.className = e > S.epoch ? 'locked' : 'unlocked' + (e === cur ? ' current' : '');
+    b.className = e > S.epoch ? 'locked' : 'unlocked' + (e === cur ? ' current' : '') + (world.relics.some((r) => r.e === e) ? ' relic' : '');
   });
 }
 
@@ -119,7 +128,7 @@ function buildGenList() {
       b.innerHTML = `<div class="ic">${k + 1}</div>
         <div><div class="nm">${genName(i)}</div><div class="ds">${genDesc(i)}</div><div class="pr"></div><div class="ms"><i></i></div></div>
         <div class="buy"><b></b><small></small></div>`;
-      b.onclick = () => buyGen(i);
+      onTap(b, () => buyGen(i));
       list.appendChild(b);
     }
   }
@@ -152,7 +161,7 @@ function renderLeap() {
   const final = S.epoch === 7;
   if (!card.firstChild) {
     card.innerHTML = `<button class="leap"><div class="k"></div><div class="n"></div><div class="bar"><i></i></div><div class="c"><span></span><b></b></div></button>`;
-    card.firstChild.onclick = doLeap;
+    onTap(card.firstChild, doLeap);
   }
   const el = card.firstChild;
   el.classList.toggle('ready', ready);
@@ -166,14 +175,15 @@ function renderLeap() {
 function renderTimeline() {
   const box = $('timeline');
   const traitsHtml = S.traits.length ? `<div class="traits-head">MERKMALE</div>${S.traits.map((id) => { const t = TRAITS.find((x) => x.id === id); return `<div class="trait"><b>${t.name}</b><small>${t.effect}</small></div>`; }).join('')}` : '';
+  const relHtml = S.relics.length ? `<div class="traits-head">RELIKTE ${S.relics.length}/${E.legacyIds(S).length}</div>${S.relics.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:#ffb347"><b>${o.name}</b><small>Echo: die Hälfte von „${o.aura.text}“</small></div>`; }).join('')}` : '';
   const avHtml = S.avatars.length ? `<div class="traits-head">AVATARE</div>${S.avatars.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:${EPOCHS[o.epoch].color}"><b>${o.name}</b><small>${o.aura.text}</small><small>„${o.power.name}": ${o.power.text} · alle ${o.power.cd} s</small></div>`; }).join('')}` : '';
-  if (!S.timeline.length) { box.innerHTML = avHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
+  if (!S.timeline.length) { box.innerHTML = avHtml + relHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
   let html = '', u = null;
   for (const t of S.timeline) {
     if (t.u !== u) { u = t.u; html += `<div class="tl-u">UNIVERSUM ${u}</div>`; }
     html += `<div class="tl ${t.kind === 'choice' ? 'choice' : ''}" style="--c:${t.c}">${t.text}</div>`;
   }
-  box.innerHTML = avHtml + traitsHtml + ((avHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
+  box.innerHTML = avHtml + relHtml + traitsHtml + ((avHtml || relHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
   box.parentElement.scrollTop = box.parentElement.scrollHeight;
 }
 
@@ -199,7 +209,7 @@ function refreshStatic() {
   setAccent(S.epoch);
   world.alt = S.choices.asteroid === 'b';
   world.setDensity(S.owned);
-  buildRail(); buildGenList(); renderLeap(); renderFragments(); buildDock();
+  buildRail(); buildGenList(); renderLeap(); renderFragments(); buildDock(); syncRelics();
   if (tab === 'time') renderTimeline();
 }
 
@@ -337,6 +347,8 @@ cv.addEventListener('pointerdown', (e) => {
   if (!running || cinematic || world.mode !== 'play' || pointers.size > MAX_FINGERS) return;
   if (world.hitGlitch(e.clientX, e.clientY)) { collectFragment(); return; }
   if (world.hitMutation(e.clientX, e.clientY)) { collectMutation(); return; }
+  const rel = world.hitRelic(e.clientX, e.clientY);
+  if (rel) { collectRelic(rel.id); return; }
   tap(e.clientX, e.clientY);
 });
 cv.addEventListener('pointermove', (e) => {
@@ -436,7 +448,7 @@ function buildDock() {
     b.className = 'av'; b.dataset.id = id; b.style.setProperty('--c', EPOCHS[o.epoch].color);
     b.setAttribute('aria-label', `${o.name}: ${o.power.name}`);
     b.innerHTML = `<span>${o.ic}</span>`;
-    b.onclick = () => firePower(id);
+    onTap(b, () => firePower(id));
     dock.appendChild(b);
   }
   updateDock();
@@ -475,6 +487,30 @@ function firePower(id) {
 // Abklingzeiten laufen mit der Spielzeit (und offline)
 function tickAvatarCd(sec) { for (const id of S.avatars) if (S.avatarCd[id] > 0) S.avatarCd[id] = Math.max(0, S.avatarCd[id] - sec); }
 
+// ── V3: Relikte (die Avatare früherer Universen) ──────────────
+// Jeder Avatar, den du je gewählt hast, liegt im nächsten Universum als Relikt auf seiner Zoom-Ebene.
+function syncRelics() {
+  const want = E.legacyIds(S).filter((id) => AVATAR_OPTS[id] && AVATAR_OPTS[id].epoch <= S.epoch && !S.relics.includes(id));
+  const have = new Set(world.relics.map((r) => r.id));
+  world.relics = world.relics.filter((r) => want.includes(r.id));
+  let fresh = false;
+  for (const id of want) if (!have.has(id)) { world.addRelic(id, AVATAR_OPTS[id].epoch); fresh = true; }
+  if (fresh && running && !cinematic) say(['Etwas liegt hier begraben. Es gehört uns.']);
+  updateRail();
+}
+function collectRelic(id) {
+  const o = AVATAR_OPTS[id], leg = [...S.legacy].reverse().find((l) => l.id === id);
+  S.relics.push(id);
+  world.relics = world.relics.filter((r) => r.id !== id);
+  music.fragment(); vibrate([15, 30, 15]); world.doFlash('#ffb347', 0.35);
+  world.burst(world.cx, world.cy, '#ffb347', 40, 1.5);
+  addTimeline(`Relikt: <b>${o.name}</b><small>aus Universum ${leg ? leg.u : '?'}</small>`, 'choice', '#ffb347');
+  openModal(`<div class="kicker" style="color:#ffb347">RELIKT · AUS UNIVERSUM ${leg ? leg.u : '?'}</div><h2>${o.name}</h2><p class="quote">${RELIC_TEXT[o.epoch]}</p><p style="font-size:13px;color:#ffb347">Echo für dieses Universum: die Hälfte von „${o.aura.text}“</p><button class="btn">Weiter</button>`);
+  $('modalCard').querySelector('.btn').onclick = closeModal;
+  updateRail(); updateHud(); save();
+  if (tab === 'time') renderTimeline();
+}
+
 // ── V2: Merkmale (Draft bei jedem Evolutionssprung) ───────────
 function offerTrait(after) {
   if (!S.pendingTrait) {
@@ -502,19 +538,19 @@ function showDraft(after) {
   };
 }
 
-document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
+document.querySelectorAll('.tab').forEach((b) => onTap(b, () => {
   tab = b.dataset.tab;
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
   ['evo', 'time', 'frag'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'time') renderTimeline();
   if (tab === 'frag') renderFragments();
-});
-document.querySelectorAll('#buyMode button').forEach((b) => b.onclick = () => {
+}));
+document.querySelectorAll('#buyMode button').forEach((b) => onTap(b, () => {
   buyN = b.dataset.n === 'max' ? 'max' : +b.dataset.n;
   document.querySelectorAll('#buyMode button').forEach((x) => x.classList.toggle('active', x === b));
   updateGenList();
-});
-$('settingsBtn').onclick = openSettings;
+}));
+onTap($('settingsBtn'), openSettings);
 
 // ── Spielschleife ─────────────────────────────────────────────
 let last = performance.now(), uiT = 0, saveT = 0;
@@ -735,6 +771,7 @@ async function bigBang(k, intent) {
     universe: S.universe + 1, runsDone: S.runsDone + 1, lifetime: S.lifetime,
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
+    legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
   save();
@@ -808,6 +845,7 @@ if (location.search.includes('dev')) {
     collect(id) { collectMutation(MUTATIONS.find((m) => m.id === id)); },
     draft() { offerTrait(); },
     fire(id) { firePower(id); },
+    bigBang(k, i) { return bigBang(k, i); },
     checkAvatars,
     get res() { return res; },
     world,

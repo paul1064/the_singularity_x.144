@@ -275,3 +275,14 @@ export const AVATARS = {
   },
 };
 export const AVATAR_OPTS = Object.fromEntries(Object.entries(AVATARS).flatMap(([e, a]) => a.options.map((o) => [o.id, { ...o, epoch: +e }])));
+
+// ─── V3: Relikte früherer Universen (je Epoche ein Fundstück) ───
+export const RELIC_TEXT = {
+  1: 'Ein versteinerter Ring aus Zellen. Er teilt sich nicht mehr, aber er erinnert sich.',
+  2: 'Ein Kiefer, groß wie ein Haus, im Sediment eines Meeres, das es nie gab.',
+  3: 'Ein Fußabdruck im Stein. Der erste. Er zeigt nach vorn.',
+  4: 'Eine Höhlenwand voller Handabdrücke. Einer davon ist zu groß.',
+  5: 'Eine Tontafel: „Wir haben gehört, und wir haben geglaubt." Datiert auf ein Jahr, das nie war.',
+  6: 'Ein Speicherchip mit einem einzigen Wort: „Synthese."',
+  7: 'Ein Signal, das nach uns sucht. Es kommt von innen.',
+};

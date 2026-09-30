@@ -45,6 +45,8 @@ export function newState() {
     avatars: [],            // V2: gewählte Avatar-Wege (Option-IDs, pro Durchlauf)
     avatarCd: {},           // V2: Abklingzeit je Avatar in Sekunden
     pendingAvatar: null,    // V2: Epoche, deren Avatar-Wahl noch aussteht
+    legacy: [],             // V3: Avatare früherer Universen [{u, id}] – bleibt über Durchläufe
+    relics: [],             // V3: in diesem Durchlauf gefundene Relikte (Avatar-IDs)
   };
 }
 
@@ -56,7 +58,13 @@ export function baseCost(i) {
 
 export const hasTrait = (state, id) => state.traits.includes(id);
 // Avatar-Auren: Produkt aller Multiplikatoren der Art k
-export const auraMult = (state, k) => state.avatars.reduce((m, id) => { const a = AVATAR_OPTS[id]?.aura; return a && a.k === k ? m * a.v : m; }, 1);
+const echo = (v) => (v >= 1 ? 1 + (v - 1) / 2 : 1 - (1 - v) / 2);   // Relikt-Echo: halbe Stärke
+export const legacyIds = (state) => [...new Set(state.legacy.map((l) => l.id))];
+export const auraMult = (state, k) => {
+  let m = state.avatars.reduce((acc, id) => { const a = AVATAR_OPTS[id]?.aura; return a && a.k === k ? acc * a.v : acc; }, 1);
+  for (const id of new Set(state.relics)) { const a = AVATAR_OPTS[id]?.aura; if (a && a.k === k) m *= echo(a.v); }
+  return m;
+};
 export const buffMult = (state, k) => state.buffs.reduce((m, b) => (b.k === k ? m * b.m : m), 1);
 
 export function costMult(state, i) {
