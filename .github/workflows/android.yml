@@ -21,7 +21,9 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      # Android SDK (inkl. Plattform 35 / Build-Tools) ist auf ubuntu-latest vorinstalliert.
+      - name: SDK-Lizenzen akzeptieren
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - name: Abhängigkeiten installieren
         run: npm ci
