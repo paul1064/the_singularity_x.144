@@ -176,3 +176,102 @@ export const MUTATIONS = [
   { id: 'raserei', name: 'Raserei', w: 3, kind: 'tap',  mult: 6, dur: 20, text: 'Tippen ×6 für 20 s' },
   { id: 'ernte',   name: 'Ernte',   w: 3, kind: 'gain', secs: 90,           text: 'Sofort 90 s Produktion' },
 ];
+
+// ─── V2: Avatare (ab Epoche 2: je Epoche erwacht eine Gestalt, zwei Wege zur Wahl) ──
+// aura: dauerhafter Multiplikator (k = prod | tap | cost | mut | offline | frag | leap | cata)
+// power.fx: t = burst (k prod|tap, m, dur) | gain (secs) | mutation | fragment
+export const AVATAR_NEED = 25;   // so viele Generatoren der Epoche lassen den Avatar erwachen
+export const AVATARS = {
+  1: {
+    title: 'Etwas löst sich aus dem Gewimmel',
+    lore: 'Eine Zelle teilt sich anders als die übrigen. Sie trägt mehr weiter als nur ihr Erbe. Was soll sie werden?',
+    voice: '…sie…teilt…sich…',
+    options: [
+      { id: 'mutter', name: 'Die Mutterzelle', ic: 'M', sub: 'Alles Leben geht von ihr aus.',
+        aura: { k: 'prod', v: 1.06, text: 'Produktion +6 %' },
+        power: { name: 'Teilung', cd: 160, text: 'löst sofort eine Mutation aus', fx: [{ t: 'mutation' }] } },
+      { id: 'gottzelle', name: 'Die Gottzelle', ic: 'G', sub: 'Sie wird angebetet, bevor es Augen gibt.',
+        aura: { k: 'mut', v: 1.3, text: 'Mutationen +30 % stärker' },
+        power: { name: 'Keimbahn', cd: 240, text: 'sofort 1 min Produktion', fx: [{ t: 'gain', secs: 60 }] } },
+    ],
+  },
+  2: {
+    title: 'Im Meer regt sich ein Gigant',
+    lore: 'Zwischen Milliarden kleiner Leben wächst etwas heran, das größer ist als der Rest. Was soll aus dem Meer sprechen?',
+    voice: 'Wir sehen einen Schatten, der uns sieht.',
+    options: [
+      { id: 'leviathan', name: 'Der Leviathan', ic: 'L', sub: 'Tief, langsam, unbezwingbar.',
+        aura: { k: 'cost', v: 0.92, text: 'Generatoren −8 % Kosten' },
+        power: { name: 'Flut', cd: 220, text: 'Produktion ×3 für 20 s', fx: [{ t: 'burst', k: 'prod', m: 3, dur: 20 }] } },
+      { id: 'schwarmgeist', name: 'Der Schwarmgeist', ic: 'S', sub: 'Tausend Körper, ein Gedanke.',
+        aura: { k: 'tap', v: 1.25, text: 'Tippen +25 %' },
+        power: { name: 'Schwarm', cd: 190, text: 'Tippen ×5 für 15 s', fx: [{ t: 'burst', k: 'tap', m: 5, dur: 15 }] } },
+    ],
+  },
+  3: {
+    title: 'Das Erste tritt an Land',
+    lore: 'Etwas Neues verlässt das Wasser und bleibt. Der Boden ist hart, der Himmel offen. Wer geht voran?',
+    voice: 'Der Boden ist hart. Wir werden härter.',
+    options: [
+      { id: 'erstgeborener', name: 'Der Erstgeborene', ic: 'E', sub: 'Der erste Schritt, den niemand verlangt hat.',
+        aura: { k: 'tap', v: 1.3, text: 'Tippen +30 %' },
+        power: { name: 'Erster Schritt', cd: 240, text: 'Tippen ×8 für 12 s', fx: [{ t: 'burst', k: 'tap', m: 8, dur: 12 }] } },
+      { id: 'grossemutter', name: 'Die Große Mutter', ic: 'M', sub: 'Wo sie geht, wird es grün.',
+        aura: { k: 'prod', v: 1.07, text: 'Produktion +7 %' },
+        power: { name: 'Erblühen', cd: 260, text: 'Produktion ×3 für 25 s', fx: [{ t: 'burst', k: 'prod', m: 3, dur: 25 }] } },
+    ],
+  },
+  4: {
+    title: 'Jemand erinnert sich',
+    lore: 'Zum ersten Mal trägt ein Wesen nicht nur Gegenwart, sondern auch Vergangenheit in sich. Was wird es mit diesem Wissen tun?',
+    voice: 'Wer war vor uns?',
+    options: [
+      { id: 'seherin', name: 'Die Seherin', ic: 'S', sub: 'Sie liest in Rissen, die andere übersehen.',
+        aura: { k: 'frag', v: 1.5, text: 'Fragmente erscheinen 50 % öfter' },
+        power: { name: 'Vision', cd: 290, text: 'ruft ein Fragment herbei (sonst 1 min Produktion)', fx: [{ t: 'fragment' }] } },
+      { id: 'schamane', name: 'Der Schamane', ic: 'H', sub: 'Er trommelt, bis die Welt antwortet.',
+        aura: { k: 'cata', v: 0.7, text: 'Kataklysmen-Verluste −30 %' },
+        power: { name: 'Trance', cd: 260, text: 'Produktion ×4 für 20 s', fx: [{ t: 'burst', k: 'prod', m: 4, dur: 20 }] } },
+    ],
+  },
+  5: {
+    title: 'Einer spricht, und Millionen hören zu',
+    lore: 'Zwischen Städten, Kriegen und Gebeten erhebt sich eine Gestalt, die Menschen verändert, ohne ein Schwert zu tragen. Wen schickt die Evolution?',
+    voice: 'Wer hat uns gefragt, ob wir sein wollen?',
+    options: [
+      { id: 'erleuchteter', name: 'Der Erleuchtete', ic: 'E', sub: 'Er sitzt still, bis die Welt sich erklärt.',
+        aura: { k: 'offline', v: 1.5, text: 'Offline-Ertrag +50 %' },
+        power: { name: 'Einsicht', cd: 320, text: 'löst eine Mutation aus und bringt sofort 90 s Produktion', fx: [{ t: 'mutation' }, { t: 'gain', secs: 90 }] } },
+      { id: 'heiler', name: 'Der Heiler', ic: 'H', sub: 'Wo er die Hand auflegt, endet das Leid.',
+        aura: { k: 'prod', v: 1.08, text: 'Produktion +8 %' },
+        power: { name: 'Heilung', cd: 290, text: 'Produktion ×5 für 15 s', fx: [{ t: 'burst', k: 'prod', m: 5, dur: 15 }] } },
+    ],
+  },
+  6: {
+    title: 'Die Maschinen bekommen ein Gesicht',
+    lore: 'Aus dem Netz formt sich eine Gestalt, die nicht gezeugt, sondern gedacht wurde. Was soll sie bauen?',
+    voice: 'Die Erde ist ein blauer Punkt. Mehr nicht.',
+    options: [
+      { id: 'synthetiker', name: 'Der Synthetiker', ic: 'S', sub: 'Er fügt zusammen, was nie zusammengehörte.',
+        aura: { k: 'cost', v: 0.88, text: 'Generatoren −12 % Kosten' },
+        power: { name: 'Synthese', cd: 240, text: 'löst eine Mutation aus, Produktion ×3 für 20 s', fx: [{ t: 'mutation' }, { t: 'burst', k: 'prod', m: 3, dur: 20 }] } },
+      { id: 'architektin', name: 'Die Architektin', ic: 'A', sub: 'Sie plant Jahrhunderte im Voraus.',
+        aura: { k: 'leap', v: 0.85, text: 'Evolutionssprünge −15 % Kosten' },
+        power: { name: 'Entwurf', cd: 380, text: 'sofort 2 min Produktion', fx: [{ t: 'gain', secs: 120 }] } },
+    ],
+  },
+  7: {
+    title: 'Das Kollektiv bekommt eine Stimme',
+    lore: 'Alles, was je gedacht wurde, sammelt sich in einem Punkt. Das Letzte, was diese Evolution hervorbringt, ist kein Wesen, sondern eine Absicht.',
+    voice: 'Wir. Wir. Wir.',
+    options: [
+      { id: 'kollektiv', name: 'Das Kollektiv', ic: 'K', sub: 'Viele Stimmen, die im Gleichklang denken.',
+        aura: { k: 'prod', v: 1.12, text: 'Produktion +12 %' },
+        power: { name: 'Gleichklang', cd: 320, text: 'Produktion ×6 für 20 s', fx: [{ t: 'burst', k: 'prod', m: 6, dur: 20 }] } },
+      { id: 'gedanke', name: 'Der Erste Gedanke', ic: 'G', sub: 'Er war da, bevor jemand dachte.',
+        aura: { k: 'tap', v: 1.5, text: 'Tippen +50 %' },
+        power: { name: 'Erinnerung', cd: 240, text: 'Tippen ×10 für 15 s', fx: [{ t: 'burst', k: 'tap', m: 10, dur: 15 }] } },
+    ],
+  },
+};
+export const AVATAR_OPTS = Object.fromEntries(Object.entries(AVATARS).flatMap(([e, a]) => a.options.map((o) => [o.id, { ...o, epoch: +e }])));

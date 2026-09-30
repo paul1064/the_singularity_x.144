@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  THE SINGULARITY x.144 — Spielablauf & Oberfläche
 // ─────────────────────────────────────────────────────────────
-import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS } from './data.js';
+import { EPOCHS, GENERATORS, LEAPS, EVENTS, VOICE, FRAGMENTS, CONSTANTS, CONST_MAX, INTENTS, MILESTONES, TRAITS, MUTATIONS, AVATARS, AVATAR_OPTS, AVATAR_NEED } from './data.js';
 import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
@@ -165,14 +165,15 @@ function renderLeap() {
 
 function renderTimeline() {
   const box = $('timeline');
-  const traitsHtml = S.traits.length ? `<div class="traits-head">MERKMALE</div>${S.traits.map((id) => { const t = TRAITS.find((x) => x.id === id); return `<div class="trait"><b>${t.name}</b><small>${t.effect}</small></div>`; }).join('')}<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>` : '';
-  if (!S.timeline.length) { box.innerHTML = traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
+  const traitsHtml = S.traits.length ? `<div class="traits-head">MERKMALE</div>${S.traits.map((id) => { const t = TRAITS.find((x) => x.id === id); return `<div class="trait"><b>${t.name}</b><small>${t.effect}</small></div>`; }).join('')}` : '';
+  const avHtml = S.avatars.length ? `<div class="traits-head">AVATARE</div>${S.avatars.map((id) => { const o = AVATAR_OPTS[id]; return `<div class="av-card" style="--c:${EPOCHS[o.epoch].color}"><b>${o.name}</b><small>${o.aura.text}</small><small>„${o.power.name}": ${o.power.text} · alle ${o.power.cd} s</small></div>`; }).join('')}` : '';
+  if (!S.timeline.length) { box.innerHTML = avHtml + traitsHtml + '<div class="empty">Noch ist nichts geschehen.<br>Die Geschichte dieses Universums wird hier geschrieben.</div>'; return; }
   let html = '', u = null;
   for (const t of S.timeline) {
     if (t.u !== u) { u = t.u; html += `<div class="tl-u">UNIVERSUM ${u}</div>`; }
     html += `<div class="tl ${t.kind === 'choice' ? 'choice' : ''}" style="--c:${t.c}">${t.text}</div>`;
   }
-  box.innerHTML = traitsHtml + html;
+  box.innerHTML = avHtml + traitsHtml + ((avHtml || traitsHtml) ? '<div class="traits-head" style="margin-top:14px">ZEITLINIE</div>' : '') + html;
   box.parentElement.scrollTop = box.parentElement.scrollHeight;
 }
 
@@ -198,7 +199,7 @@ function refreshStatic() {
   setAccent(S.epoch);
   world.alt = S.choices.asteroid === 'b';
   world.setDensity(S.owned);
-  buildRail(); buildGenList(); renderLeap(); renderFragments();
+  buildRail(); buildGenList(); renderLeap(); renderFragments(); buildDock();
   if (tab === 'time') renderTimeline();
 }
 
@@ -383,14 +384,14 @@ function collectMutation(forced) {
   } else {
     const mult = E.mutationPower(S, m.mult);
     const old = S.buffs.find((b) => b.k === m.kind && b.id === m.id);
-    if (old) old.t = m.dur; else S.buffs.push({ id: m.id, k: m.kind, m: mult, t: m.dur });
+    if (old) old.t = m.dur; else S.buffs.push({ id: m.id, n: m.name, k: m.kind, m: mult, t: m.dur });
     text = `×${fmt(mult)} ${m.kind === 'prod' ? 'Produktion' : 'Tippen'}`;
   }
   world.floater(world.cx, world.cy - 70, `${m.name}: ${text}`, '#7cf29c');
   updateHud(); updateBuffs(); save();
 }
 function updateBuffs() {
-  $('buffs').innerHTML = S.buffs.map((b) => `<b>${MUTATIONS.find((m) => m.id === b.id)?.name || b.id} ×${fmt(b.m)} · ${Math.ceil(b.t)} s</b>`).join('');
+  $('buffs').innerHTML = S.buffs.map((b) => `<b>${b.n || b.id} ×${fmt(b.m)} · ${Math.ceil(b.t)} s</b>`).join('');
 }
 function updateResonance() {
   const el = $('reso');
@@ -401,6 +402,78 @@ function updateResonance() {
     el.querySelector('span').textContent = `RESONANZ ×${fmt(E.resonanceMult(S, res))}`;
   }
 }
+
+// ── V2: Avatare (je Epoche erwacht eine Gestalt, zwei Wege) ───
+const epochOwned = (e) => S.owned[e * 3] + S.owned[e * 3 + 1] + S.owned[e * 3 + 2];
+const avatarOf = (e) => S.avatars.find((id) => AVATAR_OPTS[id].epoch === e);
+function checkAvatars() {
+  if (S.pendingAvatar || S.pendingEvent || S.pendingTrait || cinematic || modalOpen()) return;
+  for (let e = 1; e <= S.epoch; e++) {
+    if (AVATARS[e] && !avatarOf(e) && epochOwned(e) >= AVATAR_NEED) { S.pendingAvatar = e; save(); showAvatar(e); return; }
+  }
+}
+function powerText(o) { return `${o.aura.text} · „${o.power.name}": ${o.power.text} (alle ${o.power.cd} s)`; }
+function showAvatar(e) {
+  const av = AVATARS[e];
+  music.boom(); vibrate([30, 40, 80]); world.doFlash(EPOCHS[e].color, 0.5);
+  const opt = (o) => `<button class="choice-btn" data-id="${o.id}" style="--c:${EPOCHS[e].color}"><b>${o.name}</b><span>${o.sub}</span><em>${powerText(o)}</em></button>`;
+  openModal(`<div class="kicker">✦ EIN AVATAR ERWACHT · ${creator() ? 'DU LENKST' : 'DIE EVOLUTION BRINGT HERVOR'}</div><h2>${av.title}</h2><p>${av.lore}</p>${av.options.map(opt).join('')}`, false);
+  for (const b of $('modalCard').querySelectorAll('.choice-btn')) b.onclick = () => chooseAvatar(b.dataset.id);
+}
+function chooseAvatar(id) {
+  const o = AVATAR_OPTS[id];
+  S.avatars.push(id); S.pendingAvatar = null; S.avatarCd[id] = 0;
+  closeModal();
+  addTimeline(`Avatar: <b>${o.name}</b><small>${o.aura.text} · ${o.power.name}</small>`, 'choice', EPOCHS[o.epoch].color);
+  world.doFlash(EPOCHS[o.epoch].color, 0.6); world.burst(world.cx, world.cy, EPOCHS[o.epoch].color, 60, 1.8); vibrate([40, 30, 40]);
+  say([AVATARS[o.epoch].voice]);
+  refreshStatic(); updateHud(); save();
+}
+function buildDock() {
+  const dock = $('dock'); dock.innerHTML = '';
+  for (const id of S.avatars) {
+    const o = AVATAR_OPTS[id], b = document.createElement('button');
+    b.className = 'av'; b.dataset.id = id; b.style.setProperty('--c', EPOCHS[o.epoch].color);
+    b.setAttribute('aria-label', `${o.name}: ${o.power.name}`);
+    b.innerHTML = `<span>${o.ic}</span>`;
+    b.onclick = () => firePower(id);
+    dock.appendChild(b);
+  }
+  updateDock();
+}
+function updateDock() {
+  for (const b of $('dock').children) {
+    const id = b.dataset.id, cd = S.avatarCd[id] || 0, max = AVATAR_OPTS[id].power.cd;
+    b.classList.toggle('ready', cd <= 0);
+    b.style.setProperty('--p', Math.max(0, cd / max * 100).toFixed(1));
+  }
+}
+function firePower(id) {
+  if (cinematic || S.finished || modalOpen()) return;
+  const o = AVATAR_OPTS[id], cd = S.avatarCd[id] || 0;
+  if (cd > 0) { vibrate(15); world.floater(world.cx, world.cy - 60, `${o.power.name} · noch ${Math.ceil(cd)} s`, '#ffffff'); return; }
+  S.avatarCd[id] = o.power.cd;
+  const col = EPOCHS[o.epoch].color;
+  music.boom(); vibrate([20, 30, 60]); world.doFlash(col, 0.35); world.burst(world.cx, world.cy, col, 50, 1.6);
+  world.floater(world.cx, world.cy - 80, `${o.name}: ${o.power.name}`, col);
+  for (const fx of o.power.fx) {
+    if (fx.t === 'burst') {
+      const old = S.buffs.find((b) => b.id === id && b.k === fx.k);
+      if (old) old.t = fx.dur; else S.buffs.push({ id, n: o.power.name, k: fx.k, m: fx.m, t: fx.dur });
+    } else if (fx.t === 'gain') {
+      const gain = E.prodPerSec(S) * fx.secs + E.tapValue(S, undefined, 0) * 20;
+      E.earn(S, gain); world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, '#ffffff');
+    } else if (fx.t === 'mutation') {
+      collectMutation();
+    } else if (fx.t === 'fragment') {
+      if (fragmentPool().length && !world.glitch) world.spawnGlitch();
+      else { const gain = E.prodPerSec(S) * 60; E.earn(S, gain); world.floater(world.cx, world.cy - 40, `+${fmt(gain)} ✦`, '#ffffff'); }
+    }
+  }
+  updateHud(); updateBuffs(); updateDock(); save();
+}
+// Abklingzeiten laufen mit der Spielzeit (und offline)
+function tickAvatarCd(sec) { for (const id of S.avatars) if (S.avatarCd[id] > 0) S.avatarCd[id] = Math.max(0, S.avatarCd[id] - sec); }
 
 // ── V2: Merkmale (Draft bei jedem Evolutionssprung) ───────────
 function offerTrait(after) {
@@ -453,20 +526,21 @@ function loop(now) {
     S.playTime += dt;
     // Resonanz verfällt, Mutations-Effekte laufen ab
     if (performance.now() - lastTapAt > 350) res = Math.max(0, res - E.TUNING.resDecay * dt);
+    tickAvatarCd(dt);
     if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
     if (!cinematic && !modalOpen()) {
       nextMut -= dt;
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen()) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); checkAvatars(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen()) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen()) {
       nextGlitch -= dt;
       if (nextGlitch <= 0 && !world.glitch && fragmentPool().length) {
         world.spawnGlitch();
-        nextGlitch = (100 + Math.random() * 110) / (S.intent === 'neugier' ? 2 : 1);
+        nextGlitch = (100 + Math.random() * 110) / (S.intent === 'neugier' ? 2 : 1) / E.auraMult(S, 'frag');
       }
       nextVoice -= dt;
       if (nextVoice <= 0 && !voiceBusy) { say([pick(voiceSet()[S.epoch].idle)]); nextVoice = 45 + Math.random() * 40; }
@@ -683,7 +757,7 @@ document.addEventListener('visibilitychange', () => {
     const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
     if (running && away > 30 && !S.finished) {
       const gain = E.prodPerSec(S) * away * E.offlineEfficiency(S);
-      E.earn(S, gain);
+      E.earn(S, gain); tickAvatarCd(away);
       world.floater(world.cx, world.cy, `+${fmt(gain)} ✦ (offline)`, '#fff3b0');
     }
     S.lastSeen = Date.now();
@@ -711,14 +785,14 @@ window.addEventListener('resize', () => world.resize());
   // Offline-Ertrag
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
-  if (!S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); }
+  if (!S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
   await titleScreen(offline);
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
   const showPending = () => { if (S.pendingEvent) { const ev = EVENTS.find((x) => x.id === S.pendingEvent); if (ev) showEvent(ev); } };
-  if (S.pendingTrait) offerTrait(showPending); else showPending();
+  if (S.pendingTrait) offerTrait(showPending); else if (S.pendingAvatar) showAvatar(S.pendingAvatar); else showPending();
   say(voiceSet()[S.epoch].idle.slice(0, 1));
 })();
 
@@ -733,6 +807,8 @@ if (location.search.includes('dev')) {
     mutation() { world.spawnMutation(E.mutationLife(S)); return world.mutation; },
     collect(id) { collectMutation(MUTATIONS.find((m) => m.id === id)); },
     draft() { offerTrait(); },
+    fire(id) { firePower(id); },
+    checkAvatars,
     get res() { return res; },
     world,
   };

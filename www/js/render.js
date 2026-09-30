@@ -155,7 +155,7 @@ export class World {
 
   spawnMutation(life = 9) {
     const m = 56;
-    this.mutation = { x: m + Math.random() * (this.w - 2 * m - 30), y: 170 + Math.random() * Math.max(40, this.h * 0.5 - 200), life, max: life };
+    this.mutation = { x: m + Math.random() * (this.w - 2 * m - 30), y: 250 + Math.random() * Math.max(40, this.h * 0.52 - 250), life, max: life };
   }
   hitMutation(x, y) {
     const m = this.mutation;

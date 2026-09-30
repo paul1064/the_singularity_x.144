@@ -61,4 +61,11 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - Fester Debug-Schlüssel `android/app/debug.keystore` (im Repo), damit APKs über ältere drüberinstalliert werden können (ab V2; V1-APK war anders signiert → einmal deinstallieren).
 - **Entscheidung In-App-Käufe:** bewusst noch nicht. Erst Spielgefühl/Features fertigstellen. Später nötig: Play-Console-Konto (25 $), signierte Release-APK/AAB, Billing-Plugin (z. B. RevenueCat/cordova-plugin-purchase). Konzept: nur Komfort/Kosmetik (Werbefrei-Äquivalent, Soundtrack-/Farbthemen), kein Pay-to-win bei den Universum-Konstanten.
 
+### V2.0 (Teil 2): Avatare
+- Ab Epoche 2 erwacht je Epoche ein **Avatar**, sobald `AVATAR_NEED` (25) Generatoren dieser Epoche gekauft sind. Der Spieler wählt 1 von 2 **Wegen** (z. B. Mutterzelle / Gottzelle, Erleuchteter / Heiler, Synthetiker / Architektin). Bewusst **Archetypen statt realer Religionsstifter** (Play-Store-Richtlinien, Feingefühl).
+- Jeder Weg = **Aura** (dauerhafter Multiplikator: prod/tap/cost/mut/offline/frag/leap/cata) + **Kraft** (aktiv, Abklingzeit 160–380 s; Effekte: burst/gain/mutation/fragment). Alles datengetrieben in `AVATARS` (data.js), Logik in `economy.js` (`auraMult`) und `main.js` (Dock, `firePower`).
+- Dock mit leuchtenden Kreisen unter dem HUD, Abklingzeit als Kreissegment; Avatare pro Durchlauf (wie Merkmale), in der Zeitlinie gelistet.
+- Balance (ideal gespielt, ohne Mutationen/Merkmale): `node tools/simulate.mjs --avatare` → ca. 37–45 min statt 68 min (`WEG=1` für die jeweils 2. Wege). Stellschrauben: Auren, `cd`, Burst-Werte in `AVATARS`.
+- Test: `python3 tools/test_avatare.py <ordner>`.
+
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.

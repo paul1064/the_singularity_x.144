@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  Ökonomie — reine Funktionen (auch in Node testbar)
 // ─────────────────────────────────────────────────────────────
-import { GENERATORS, MILESTONES, EPOCHS } from './data.js';
+import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS } from './data.js';
 
 export const TUNING = {
   costBase: 12,
@@ -42,6 +42,9 @@ export function newState() {
     traits: [],             // V2: gewählte Merkmale (pro Durchlauf)
     pendingTrait: null,     // V2: angebotene, noch nicht gewählte Merkmale
     buffs: [],              // V2: aktive Mutations-Effekte {k, m, t}
+    avatars: [],            // V2: gewählte Avatar-Wege (Option-IDs, pro Durchlauf)
+    avatarCd: {},           // V2: Abklingzeit je Avatar in Sekunden
+    pendingAvatar: null,    // V2: Epoche, deren Avatar-Wahl noch aussteht
   };
 }
 
@@ -52,12 +55,15 @@ export function baseCost(i) {
 }
 
 export const hasTrait = (state, id) => state.traits.includes(id);
+// Avatar-Auren: Produkt aller Multiplikatoren der Art k
+export const auraMult = (state, k) => state.avatars.reduce((m, id) => { const a = AVATAR_OPTS[id]?.aura; return a && a.k === k ? m * a.v : m; }, 1);
 export const buffMult = (state, k) => state.buffs.reduce((m, b) => (b.k === k ? m * b.m : m), 1);
 
 export function costMult(state, i) {
   const e = epochOf(i);
   let m = 1;
   if (hasTrait(state, 'sparsam')) m *= 0.85;
+  m *= auraMult(state, 'cost');
   if (state.choices.oxygen === 'b' && (e === 2 || e === 3)) m *= 0.8;
   return m;
 }
@@ -80,6 +86,7 @@ export function leapCost(state, e) {
   if (e === 7) c *= 3;
   if (e === 7 && state.choices.button === 'b') c *= 0.7;
   if (hasTrait(state, 'erbe')) c *= 0.8;
+  c *= auraMult(state, 'leap');
   return c;
 }
 
@@ -109,7 +116,7 @@ export function epochMult(state, e) {
 }
 
 export function globalMult(state) {
-  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone);
+  return (1 + 0.05 * state.constants.x) * (1 + 0.15 * state.runsDone) * auraMult(state, 'prod');
 }
 
 export function genProd(state, i) {
@@ -129,7 +136,7 @@ export function tapMult(state) {
   if (state.intent === 'wille') m *= 2;
   if (hasTrait(state, 'schwarm')) m *= 2;
   if (hasTrait(state, 'traeumer')) m *= 0.8;
-  return m * buffMult(state, 'tap');
+  return m * buffMult(state, 'tap') * auraMult(state, 'tap');
 }
 
 // Resonanz: schnelles Tippen (vor allem mit mehreren Fingern) lädt einen Tipp-Multiplikator auf
@@ -144,8 +151,8 @@ export function tapValue(state, pps = prodPerSec(state), res = 0) {
 // Mutationen: Häufigkeit, Lebensdauer, Stärke
 export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1);
 export const mutationLife = (state) => 9 * (hasTrait(state, 'mutant') ? 1.5 : 1);
-export const mutationPower = (state, m) => (hasTrait(state, 'glueck') ? 1 + (m - 1) * 1.5 : m);
-export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1);
+export const mutationPower = (state, m) => 1 + (m - 1) * (hasTrait(state, 'glueck') ? 1.5 : 1) * auraMult(state, 'mut');
+export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1) * auraMult(state, 'offline');
 
 export function earn(state, amount) {
   state.complexity += amount;
@@ -156,6 +163,7 @@ export function earn(state, amount) {
 export function catastropheLoss(state, frac) {
   let f = state.intent === 'harmonie' ? frac / 2 : frac;
   if (hasTrait(state, 'zaeh')) f /= 2;
+  f *= auraMult(state, 'cata');
   state.complexity *= (1 - f);
 }
 

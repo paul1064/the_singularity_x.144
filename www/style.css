@@ -45,13 +45,25 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .reso.on { opacity: 1; }
 .reso i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, rgba(255,255,255,0.12), var(--accent)); opacity: .85; }
 .reso span { position: relative; display: block; font-size: 10px; letter-spacing: .14em; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 0 6px rgba(0,0,0,.6); }
-.buffs { display: flex; justify-content: center; gap: 6px; margin-top: 6px; min-height: 0; }
+.buffs { display: flex; justify-content: center; gap: 6px; margin-top: 6px; min-height: 22px; }
 .buffs b { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 10px; color: #06120a; background: #7cf29c; box-shadow: 0 0 14px rgba(124,242,156,.5); font-variant-numeric: tabular-nums; }
 .traits-head { font-size: 10px; letter-spacing: .24em; color: var(--muted); font-weight: 700; margin: 6px 4px 8px; }
 .trait { padding: 9px 12px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 13px; }
 .trait b { display: block; font-size: 13.5px; color: #fff3b0; }
 .trait small { color: var(--muted); font-size: 12px; }
 
+.dock { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 4px; }
+.av { --p: 0; --c: #fff; pointer-events: auto; position: relative; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
+  font: 700 16px 'Space Grotesk', system-ui, sans-serif; color: #fff; background: rgba(8,12,24,0.72); border: 0; touch-action: manipulation;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 35%, transparent), 0 0 16px color-mix(in srgb, var(--c) 30%, transparent); }
+.av::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(0,0,0,0.62) calc(var(--p) * 1%), transparent 0); }
+.av span { position: relative; text-shadow: 0 0 8px var(--c); }
+.av.ready { box-shadow: 0 0 0 2px var(--c), 0 0 22px var(--c); animation: avPulse 1.6s ease-in-out infinite; }
+.av.ready span { color: var(--c); }
+@keyframes avPulse { 50% { box-shadow: 0 0 0 3px var(--c), 0 0 30px var(--c); } }
+.av-card { padding: 10px 12px; margin-bottom: 7px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid var(--line); font-size: 13px; }
+.av-card b { display: block; font-size: 13.5px; color: var(--c, #fff3b0); }
+.av-card small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 /* ── Zoom-Leiste ─────────────────────── */
 #rail {
   position: fixed; right: 10px; top: calc(var(--safe-t) + 128px); bottom: calc(var(--panel-h) + 24px);
