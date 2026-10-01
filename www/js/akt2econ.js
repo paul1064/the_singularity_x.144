@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 import { SEPHIROTH, PATHS, ABYSS_PATHS, SACRED, MENTORS, AGE_EVENTS, DIMENSIONS, gi } from './akt2data.js';
 import { sephiraOfSign } from './mystik.js';
+import { festFx } from './akt2orakel.js';
 
 export const T2 = {
   costBase: 15, costTier: 7.5, costGrowth: 1.22,
@@ -20,7 +21,7 @@ export const ALL_PATHS = [...PATHS, ...ABYSS_PATHS];
 export const LAST_AGE = 7;
 
 export function newA2() {
-  return { run: 1, dim: 0, layers: 0, prof: null, total: 0, endings: [], wegAll: 0, ...runFields() };
+  return { run: 1, dim: 0, layers: 0, prof: null, total: 0, endings: [], wegAll: 0, orakel: null, orakelTage: 0, festSeen: null, ...runFields() };
 }
 export function runFields() {
   return { wissen: 0, earned: 0, owned: new Array(11).fill(0), age: 0, mentors: [], mcd: {}, buffs: [], events: {}, ritCd: 0,
@@ -74,6 +75,10 @@ export function computeFx(a2, a) {
     if (h.sun === a.sun) { fx.prod *= 1.1; parts.push('Die Sonne steht in deinem Zeichen: Produktion +10 %'); }
     fx.sky = parts;
   }
+  // Orakel: jeder Besuch zählt dauerhaft (+0,5 % je Tag, bis +25 %); echte Festtage geben Boni
+  fx.prod *= 1 + 0.005 * Math.min(50, a2.orakelTage || 0);
+  fx.fest = [];
+  if (a && a.kalender) { const f = festFx(a.kalender); for (const k of Object.keys(f.fx)) fx[k] *= f.fx[k]; fx.fest = f.lines; }
   // Dimensionen
   for (let d = 0; d < a2.dim; d++) {
     fx.prod *= 1.25;
@@ -115,8 +120,14 @@ export function activePaths(a2) {
 }
 // Schübe gleicher Art stapeln sich nicht: Es zählt der stärkste
 export const buffMult = (a2, k) => a2.buffs.reduce((m, b) => (b.k === k ? Math.max(m, b.m) : m), 1);
+// Der Tagespfad des Orakels leuchtet heute mit: ist er noch dunkel, zählt er doppelt, ist er schon an, einmal zusätzlich
+export function pathUnits(a2) {
+  const act = activePaths(a2);
+  if (a2.todayPath === null || a2.todayPath === undefined) return act.length;
+  return act.length + (act.includes(PATHS[a2.todayPath]) ? 1 : 2);
+}
 export function globalMult(a2, fx) {
-  return (1 + (T2.pathBonus + fx.path) * activePaths(a2).length) * fx.prod * buffMult(a2, 'prod') * (a2.meta ?? 1);
+  return (1 + (T2.pathBonus + fx.path) * pathUnits(a2)) * fx.prod * buffMult(a2, 'prod') * (a2.meta ?? 1);
 }
 export function prodPerSec(a2, fx) {
   let s = 0;

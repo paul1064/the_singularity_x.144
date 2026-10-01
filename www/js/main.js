@@ -8,8 +8,10 @@ import { Soundtrack } from './audio.js';
 import { fmt, fmtRate } from './format.js';
 import { createAkt2 } from './akt2.js';
 import { AGES } from './akt2data.js';
+import * as SI from './sicherung.js';
 
 const SAVE_KEY = 'singularity-x144';
+const SNAP_KEY = 'singularity-x144-snap';
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -40,7 +42,9 @@ function load() {
   } catch { /* beschädigter Speicherstand → neu */ }
   return E.newState();
 }
+let restoring = false;      // V6: während des Einspielens einer Sicherung darf nichts mehr gespeichert werden
 function save() {
+  if (restoring) return;
   S.lastSeen = Date.now();
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch { /* voll/privat */ }
 }
@@ -328,6 +332,7 @@ function openSettings() {
     <p style="margin-top:14px;font-size:12.5px;color:var(--muted)">Durchläufe abgeschlossen: ${S.runsDone} · Fragmente: ${S.fragments.length}/${FRAGMENTS.length}<br>Tipp: Mit zwei Fingern zoomen oder die Punkte rechts antippen, um frühere Größenordnungen zu besuchen.</p>
     ${S.akt === 1 ? '<button class="btn ghost" id="a2Preview">Akt II: Der Orden (Vorschau)</button>' : (S.a2 && S.a2.preview ? '<button class="btn ghost" id="a2Back">Zurück zu Akt I</button>' : '')}
     <button class="btn ghost" id="chronikSet">Chronik ansehen &amp; teilen</button>
+    <button class="btn ghost" id="backupSet">Spielstand sichern <small style="opacity:.6">· zuletzt ${SI.ageText(S.lastBackup)}</small></button>
     <button class="btn ghost" id="closeSet">Schließen</button>
     <button class="btn danger" id="resetBtn">Spielstand löschen</button>`);
   for (const b of $('modalCard').querySelectorAll('.switch')) b.onclick = () => {
@@ -336,6 +341,7 @@ function openSettings() {
   };
   $('closeSet').onclick = closeModal;
   $('chronikSet').onclick = openChronik;
+  $('backupSet').onclick = openBackup;
   if ($('a2Preview')) $('a2Preview').onclick = () => { closeModal(); A2.enter(true); };
   if ($('a2Back')) $('a2Back').onclick = () => { closeModal(); A2.leave(); enterPlay(); };
   let armed = false;
@@ -343,6 +349,96 @@ function openSettings() {
     if (!armed) { armed = true; e.target.textContent = 'Wirklich alles löschen? Nochmal tippen'; return; }
     localStorage.removeItem(SAVE_KEY); location.reload();
   };
+}
+
+// ── V6: Spielstand sichern ────────────────────────────────────
+const snaps = () => { try { return JSON.parse(localStorage.getItem(SNAP_KEY)) || []; } catch { return []; } };
+function takeSnapshot(save, force = false) {       // „save" = Spielstand-Objekt; Ring aus 3 Schnappschüssen
+  try { localStorage.setItem(SNAP_KEY, JSON.stringify(SI.addSnapshot(snaps(), save, Date.now(), force))); } catch { /* voll */ }
+}
+const dateStr = (ts) => new Date(ts).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const infoLine = (i) => `Universum ${i.universe}${i.akt === 2 ? ' · Akt II' : ''} · ${i.runsDone} Durchläufe${i.orakelTage ? ` · ${i.orakelTage} Orakel-Tage` : ''}`;
+
+async function exportBackup() {
+  save(); const b = SI.packBackup(S), text = SI.toText(b);
+  const name = `singularity-x144-u${S.universe}-${new Date().toISOString().slice(0, 10)}.json`;
+  const P = window.Capacitor && window.Capacitor.Plugins;
+  let how = 'fail';
+  try {
+    if (P && P.Filesystem && P.Share) {
+      const f = await P.Filesystem.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' });
+      await P.Share.share({ title: 'Sicherung – The Singularity x.144', url: f.uri, dialogTitle: 'Sicherung speichern oder senden' }); how = 'shared';
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); how = 'download';
+    }
+  } catch (e) { if (e && (e.name === 'AbortError' || /cancel/i.test(e.message || ''))) return 'cancel'; how = 'fail'; }
+  if (how === 'fail') { try { await navigator.clipboard.writeText(SI.toCode(b)); how = 'copied'; } catch { /* */ } }
+  if (how !== 'fail') { S.lastBackup = Date.now(); save(); }
+  return how;
+}
+function openBackup() {
+  const sn = snaps();
+  openModal(`<div class="kicker">SICHERUNG</div><h2>Spielstand sichern</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Dein Spielstand liegt nur auf diesem Gerät. Sichere ihn als Datei (z. B. an Google Drive, Mail oder dich selbst senden), bevor du die App neu installierst oder das Handy wechselst.<br>Zuletzt gesichert: <b>${SI.ageText(S.lastBackup)}</b></p>
+    <button class="btn" id="bkExport">Als Datei sichern / senden</button>
+    <button class="btn ghost" id="bkCode">Code kopieren</button>
+    <button class="btn ghost" id="bkImport">Sicherung einspielen …</button>
+    ${sn.length ? `<div class="kicker" style="margin-top:14px">AUTOMATISCHE SCHNAPPSCHÜSSE</div>${sn.map((x, i) => `<div class="row"><span style="font-size:12.5px">${dateStr(x.at)}<br><small style="color:var(--muted)">${infoLine(x.info)}</small></span><button class="btn ghost" data-snap="${i}" style="width:auto;margin:0;padding:6px 12px">Laden</button></div>`).join('')}` : ''}
+    <div id="bkMsg" style="font-size:12.5px;color:var(--muted);min-height:18px;margin:8px 0"></div>
+    <button class="btn ghost" id="bkClose">Zurück</button>`);
+  $('bkClose').onclick = openSettings;
+  $('bkExport').onclick = async () => {
+    const r = await exportBackup();
+    $('bkMsg').textContent = r === 'cancel' ? 'Abgebrochen.' : r === 'fail' ? 'Sichern hat nicht geklappt.' : r === 'copied' ? 'Teilen nicht möglich: Der Code liegt in der Zwischenablage.' : 'Gesichert ✓';
+  };
+  $('bkCode').onclick = async () => {
+    save(); try { await navigator.clipboard.writeText(SI.toCode(SI.packBackup(S))); S.lastBackup = Date.now(); save(); $('bkMsg').textContent = 'Code kopiert ✓ (in einer Notiz oder Mail aufbewahren).'; }
+    catch { $('bkMsg').textContent = 'Kopieren nicht möglich. Nutze „Als Datei sichern".'; }
+  };
+  $('bkImport').onclick = openImport;
+  for (const b of $('modalCard').querySelectorAll('[data-snap]')) b.onclick = () => { const x = sn[+b.dataset.snap]; previewRestore(SI.packBackup(x.save, x.at), openBackup); };
+}
+function openImport() {
+  openModal(`<div class="kicker">SICHERUNG EINSPIELEN</div><h2>Wiederherstellen</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 10px">Wähle die Sicherungsdatei oder füge den Code ein (beginnt mit SX144:).</p>
+    <label class="btn ghost" style="display:block;text-align:center">Datei wählen<input type="file" id="bkFile" accept=".json,application/json,text/plain" style="display:none"></label>
+    <textarea id="bkText" rows="4" placeholder="SX144:…" style="width:100%;box-sizing:border-box;margin:8px 0;background:rgba(255,255,255,.06);color:var(--text,#fff);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px;font-size:12px"></textarea>
+    <div id="bkMsg" style="font-size:12.5px;color:#ff8a8a;min-height:18px;margin-bottom:8px"></div>
+    <button class="btn" id="bkRead">Prüfen</button><button class="btn ghost" id="bkBack">Zurück</button>`);
+  $('bkBack').onclick = openBackup;
+  const go = (text) => { const r = SI.parseBackup(text); if (!r.ok) { $('bkMsg').textContent = r.error; return; } previewRestore(r.backup, openImport); };
+  $('bkRead').onclick = () => go($('bkText').value);
+  $('bkFile').onchange = async (e) => { const f = e.target.files[0]; if (f) go(await f.text()); };
+}
+function previewRestore(b, back) {
+  const cur = infoLine(SI.info(S));
+  openModal(`<div class="kicker">SICHERUNG GEFUNDEN</div><h2>Diesen Stand laden?</h2>
+    <div class="row"><span><small style="color:var(--muted)">Sicherung (${dateStr(b.exportedAt)})</small><br><b>${infoLine(b.info)}</b></span></div>
+    <div class="row"><span><small style="color:var(--muted)">Aktuell auf diesem Gerät</small><br>${cur}</span></div>
+    <p style="font-size:12.5px;color:var(--muted)">Der aktuelle Stand wird vorher automatisch als Schnappschuss abgelegt, du kannst also zurück.</p>
+    <button class="btn" id="bkGo">Sicherung laden</button><button class="btn ghost" id="bkNo">Abbrechen</button>`);
+  $('bkNo').onclick = back;
+  $('bkGo').onclick = () => {
+    save(); takeSnapshot(S, true);
+    const s = Object.assign({}, b.save, { lastBackup: Date.now() });
+    restoring = true;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { restoring = false; $('bkGo').textContent = 'Speichern nicht möglich'; return; }
+    restoring = true; location.reload();
+  };
+}
+// Sanfte Erinnerung: höchstens alle 3 Tage, wenn die letzte Sicherung ≥ 7 Tage her ist
+function backupReminder() {
+  if (location.search.includes('dev') && !location.search.includes('remind')) return;   // Tests nicht stören
+  if (!SI.needsReminder(S)) return;
+  const t = setInterval(() => {
+    if (modalOpen() || cinematic) return;
+    clearInterval(t); S.backupAsked = Date.now(); save();
+    openModal(`<div class="kicker">KLEINE ERINNERUNG</div><h2>Spielstand sichern?</h2>
+      <p style="font-size:13px;color:var(--muted)">Dein Spielstand liegt nur auf diesem Handy. ${S.lastBackup ? `Die letzte Sicherung ist ${SI.ageText(S.lastBackup)}.` : 'Du hast ihn noch nie gesichert.'} Es dauert nur einen Moment.</p>
+      <button class="btn" id="rmGo">Jetzt sichern</button><button class="btn ghost" id="rmNo">Später</button>`);
+    $('rmNo').onclick = closeModal; $('rmGo').onclick = openBackup;
+  }, 6000);
 }
 
 // ── Eingabe: Multi-Touch-Tippen (bis zu 5 Finger), Pinch-Zoom ──
@@ -1097,7 +1193,9 @@ const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, mo
   if (S.akt !== 2 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
+  try { const raw = localStorage.getItem(SAVE_KEY); if (raw) takeSnapshot(JSON.parse(raw)); } catch { /* */ }   // V6: täglicher Schnappschuss
   await titleScreen(offline);
+  backupReminder();
   if (S.akt === 2) { cinematic = false; running = true; A2.enter(); A2.offline(rawAway); return; }
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
@@ -1122,6 +1220,9 @@ if (location.search.includes('dev')) {
     bigBang(k, i) { return bigBang(k, i); },
     queue: checkQueue,
     A2,
+    music,
+    SI,
+    takeSnapshot,
     send(e) { sendKnowledge(e); },
     chronikText,
     openChronik,

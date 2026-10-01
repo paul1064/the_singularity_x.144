@@ -1,6 +1,6 @@
 {
   "name": "the-singularity-x144",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "private": true,
   "description": "The Singularity x.144 – Evolutions-Idle-Game",
   "scripts": {
@@ -10,6 +10,7 @@
     "@capacitor/android": "^7.6.9",
     "@capacitor/app": "^7.1.2",
     "@capacitor/core": "^7.6.9",
+    "@capacitor/filesystem": "^7.1.8",
     "@capacitor/share": "^7.0.4",
     "@capacitor/splash-screen": "^7.0.5",
     "@capacitor/status-bar": "^7.0.6"

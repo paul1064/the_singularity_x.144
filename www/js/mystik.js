@@ -180,5 +180,48 @@ export function analyse(profile, now = new Date()) {
     alter: ageYears, saturnrueckkehr: satRet.jd ? dateOfJD(satRet.jd) : null, jupiterrueckkehr: jupRet.jd ? dateOfJD(jupRet.jd) : null,
     persJahr: reduceNum(d + m + now.getFullYear()),
     heute: { sun: signOf(sunLongitude(jdNow)), moon: signOf(moonLongitude(jdNow)), phase: moonPhase(jdNow), transit },
+    kalender: kalender(now, 120, sunLon),
   };
+}
+
+// ── Himmelskalender: echte Termine ────────────────────────────
+// Nächster Zeitpunkt, an dem die Sonne die Länge target (°) erreicht (Newton-Verfahren)
+export function nextSunCrossing(target, jdFrom) {
+  let jd = jdFrom + mod(target - sunLongitude(jdFrom), 360) / 0.9856;
+  for (let i = 0; i < 8; i++) jd += angDiff(target, sunLongitude(jd)) / 0.9856;
+  return jd;
+}
+const elong = (jd) => mod(moonLongitude(jd) - sunLongitude(jd), 360);
+// Nächster Zeitpunkt, an dem der Mondabstand zur Sonne target (0 = Neumond, 180 = Vollmond) erreicht
+export function nextElongation(target, jdFrom) {
+  let jd = jdFrom + mod(target - elong(jdFrom), 360) / 12.19;
+  for (let i = 0; i < 10; i++) jd += angDiff(target, elong(jd)) / 12.19;
+  return jd;
+}
+// Feste des Jahreskreises (Sonnenlänge): Sonnenfeste (Wenden, Tag-und-Nacht-Gleichen) und Halbfeste dazwischen
+export const FESTE_LAENGE = [
+  { id: 'fruehling', typ: 'sonnenfest', lon: 0,   name: 'Frühlings-Tagundnachtgleiche' },
+  { id: 'walpurgis', typ: 'halbfest',   lon: 45,  name: 'Walpurgis' },
+  { id: 'sommer',    typ: 'sonnenfest', lon: 90,  name: 'Sommersonnenwende' },
+  { id: 'schnitter', typ: 'halbfest',   lon: 135, name: 'Schnitterfest' },
+  { id: 'herbst',    typ: 'sonnenfest', lon: 180, name: 'Herbst-Tagundnachtgleiche' },
+  { id: 'samhain',   typ: 'halbfest',   lon: 225, name: 'Samhain' },
+  { id: 'winter',    typ: 'sonnenfest', lon: 270, name: 'Wintersonnenwende' },
+  { id: 'lichtmess', typ: 'halbfest',   lon: 315, name: 'Lichtmess' },
+];
+const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+export { sameDay };
+// Alle Ereignisse der nächsten `days` Tage, nach Datum sortiert. natalSunLon: für die Sonnenwiederkehr (Geburtstag).
+export function kalender(now, days = 120, natalSunLon = null) {
+  const jd0 = julianDay(now) - 0.5, jd1 = jd0 + days + 0.5, out = [];
+  const add = (typ, id, name, jd) => { if (jd >= jd0 && jd <= jd1) out.push({ typ, id, name, jd, date: dateOfJD(jd) }); };
+  for (const f of FESTE_LAENGE) add(f.typ, f.id, f.name, nextSunCrossing(f.lon, jd0));
+  for (const [target, typ, name] of [[0, 'neumond', 'Neumond'], [180, 'vollmond', 'Vollmond']]) {
+    let jd = nextElongation(target, jd0);
+    while (jd <= jd1) { add(typ, typ, name, jd); jd = nextElongation(target, jd + 10); }
+  }
+  if (natalSunLon !== null) add('wiederkehr', 'wiederkehr', 'Sonnenwiederkehr (dein Geburtstag)', nextSunCrossing(natalSunLon, jd0));
+  out.sort((a, b) => a.jd - b.jd);
+  for (const e of out) e.heute = sameDay(e.date, now);
+  return out;
 }

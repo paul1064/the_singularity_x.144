@@ -10,6 +10,8 @@ import * as A from './akt2econ.js';
 import { analyse, SIGNS } from './mystik.js';
 import { lesen, LAYER_TITLES, HINWEIS } from './akt2read.js';
 import { fmt, fmtRate } from './format.js';
+import { OrdenKlang } from './akt2audio.js';
+import { tageskarte, orakelLesung, dayKey, FEST_INFO } from './akt2orakel.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,9 +24,11 @@ export function createAkt2(C) {
   const a = () => st().a2;
   let fx = null, ana = null;
   let active = false, busy = false, uiT = 0, saveT = 0, buyN = 1, tab = 'orden', t = 0;
-  let ritual = null, genKey = '';
+  let ritual = null, genKey = '', klT = 0;
   const pointers = new Map();
   const cv = $('a2c'), g = cv.getContext('2d');
+  const K = new OrdenKlang(C.music);
+  let lastDay = dayKey(), lastCalc = Date.now(), skyAsked = false;
   let W = 0, H = 0, dpr = 1, geo = { top: 0, bottom: 0, x0: 0, x1: 0, r: 14, availW: 0 };
 
   // ── Berechnung ──────────────────────────────────────────────
@@ -32,6 +36,8 @@ export function createAkt2(C) {
     const S = st(), a2 = S.a2;
     ana = a2.prof ? analyse(a2.prof) : null;
     a2.meta = (1 + 0.03 * S.endings.length) * (1 + 0.02 * Math.min(10, S.pantheon.length));
+    a2.todayPath = a2.orakel && a2.orakel.date === dayKey() ? a2.orakel.path : null;   // Tageskarte des Orakels
+    lastCalc = Date.now();
     fx = A.computeFx(a2, ana);
   }
   const pps = () => A.prodPerSec(a(), fx);
@@ -80,8 +86,12 @@ export function createAkt2(C) {
     A.ALL_PATHS.forEach((p, idx) => {
       const i = gi(p.a), j = gi(p.b);
       if ((i === 10 || j === 10) && a2.dim < 1) return;
-      const pa = nodePos(i), pb = nodePos(j), on = act.has(p);
+      const pa = nodePos(i), pb = nodePos(j), on = act.has(p), today = a2.todayPath === idx;
       g.save(); g.lineCap = 'round';
+      if (today) {        // heutiger Pfad des Orakels
+        g.strokeStyle = hexA('#c77dff', 0.55 + 0.35 * Math.sin(t * 3)); g.lineWidth = 3; g.shadowColor = '#c77dff'; g.shadowBlur = 12;
+        g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(pb.x, pb.y); g.stroke(); g.shadowBlur = 0;
+      }
       if (on) {
         g.strokeStyle = hexA('#ffd166', 0.85); g.lineWidth = 2; g.shadowColor = '#ffd166'; g.shadowBlur = 8;
         g.beginPath(); g.moveTo(pa.x, pa.y); g.lineTo(pb.x, pb.y); g.stroke();
@@ -151,7 +161,7 @@ export function createAkt2(C) {
     C.world.burst(x, y, '#ffd166', 7);
     C.world.floater(x + (Math.random() - 0.5) * 40, y - 12 - Math.random() * 16, '+' + fmt(v), '#fff3b0');
     const now = performance.now();
-    if (now - lastSfx > 45) { C.music.tap(); lastSfx = now; }
+    if (now - lastSfx > 45) { K.tap(); lastSfx = now; }
     if (now - lastVib > 60) { C.vibrate(6); lastVib = now; }
   }
   const buyAmount = (i) => (buyN === 'max' ? Math.max(1, A.maxAffordable(a(), fx, i)) : buyN);
@@ -162,12 +172,12 @@ export function createAkt2(C) {
     if (a2.wissen < cost) { C.vibrate(20); C.world.floater(x, y - 24, 'Zu wenig Wissen', '#8a93b8'); return; }
     const before = new Set(A.activePaths(a2)), ms0 = A.milestoneMult(a2.owned[i]);
     a2.wissen -= cost; a2.owned[i] += n;
-    C.music.buy(); C.vibrate(10);
+    K.buy(i); C.vibrate(10);
     C.world.burst(x, y, SEPHIROTH[i].color, 14, 1.1);
     if (A.milestoneMult(a2.owned[i]) > ms0) C.world.floater(x, y - 34, `${SEPHIROTH[i].name} ×${(A.milestoneMult(a2.owned[i]) / ms0).toFixed(1).replace('.', ',')}`, '#fff');
     const fresh = A.activePaths(a2).filter((p) => !before.has(p))[0];
     if (fresh) {       // ein neuer Pfad des Baums leuchtet auf
-      C.world.doFlash('#ffd166', 0.3); C.vibrate([20, 30, 20]);
+      K.path(gi(fresh.a), gi(fresh.b)); C.world.doFlash('#ffd166', 0.3); C.vibrate([20, 30, 20]);
       C.world.floater(geo.availW / 2, geo.top - 14, `Pfad ${fresh.letter}: ${fresh.card}`, '#ffd166');
       C.say([fresh.text], 'plural');
     }
@@ -189,7 +199,7 @@ export function createAkt2(C) {
   function ritualTap(i) {
     if (ritual.phase !== 'input') return;
     if (i === ritual.seq[ritual.pos]) {
-      ritual.pos++; C.music.buy(); C.vibrate(10); const p = nodePos(i); C.world.burst(p.x, p.y, SEPHIROTH[i].color, 14, 1.2);
+      ritual.pos++; K.ritualNote(i); C.vibrate(10); const p = nodePos(i); C.world.burst(p.x, p.y, SEPHIROTH[i].color, 14, 1.2);
       if (ritual.pos >= ritual.len) ritualEnd(true);
     } else ritualEnd(false);
   }
@@ -199,9 +209,9 @@ export function createAkt2(C) {
     if (win) {
       const m = 1 + (2 + 0.5 * len) * fx.rit, gain = pps() * 40 * len * fx.rit;
       A.earn(a2, gain); a2.buffs.push({ n: 'Ritual', k: 'prod', m, t: 30 });
-      C.music.boom(true); C.vibrate([40, 40, 80]); C.world.doFlash('#ffd166', 0.6); C.world.burst(C.world.cx, C.world.cy, '#ffd166', 60, 1.8);
+      K.ritualWin(); C.vibrate([40, 40, 80]); C.world.doFlash('#ffd166', 0.6); C.world.burst(C.world.cx, C.world.cy, '#ffd166', 60, 1.8);
       C.world.floater(geo.availW / 2, geo.top + 10, `Ritual gelungen: +${fmt(gain)} ✦, Produktion ×${m.toFixed(1).replace('.', ',')}`, '#ffd166');
-    } else { C.vibrate(40); C.world.floater(geo.availW / 2, geo.top + 10, 'Der Faden riss. Das Ritual ruht.', '#8a93b8'); a2.ritCd = Math.min(a2.ritCd, A.T2.ritualCd * 0.5); }
+    } else { K.ritualFail(); C.vibrate(40); C.world.floater(geo.availW / 2, geo.top + 10, 'Der Faden riss. Das Ritual ruht.', '#8a93b8'); a2.ritCd = Math.min(a2.ritCd, A.T2.ritualCd * 0.5); }
     buildDock(); updateBuffs(); updateHud();
   }
 
@@ -232,7 +242,8 @@ export function createAkt2(C) {
   }
   function updateBuffs() {
     const a2 = a();
-    $('buffs').innerHTML = a2.buffs.map((b) => `<b>${b.n} ×${fmt(b.m)} · ${Math.ceil(b.t)} s</b>`).join('');
+    const fest = (fx && fx.fest ? fx.fest : []).map((l) => `<b class="fest">${l}</b>`).join('');
+    $('buffs').innerHTML = fest + a2.buffs.map((b) => `<b>${b.n} ×${fmt(b.m)} · ${Math.ceil(b.t)} s</b>`).join('');
   }
   function buildDock() {
     const a2 = a(), dock = $('dock'); dock.innerHTML = '';
@@ -240,15 +251,19 @@ export function createAkt2(C) {
       const b = document.createElement('button');
       b.className = 'av' + (cd <= 0 ? ' ready' : ''); b.dataset.id = id; b.style.setProperty('--c', col); b.style.setProperty('--p', Math.max(0, cd / max * 100).toFixed(1));
       b.setAttribute('aria-label', label); b.innerHTML = `<span>${ic}</span>`;
-      C.onTap(b, id === '_ritual' ? startRitual : () => firePower(id));
+      C.onTap(b, id === '_ritual' ? startRitual : id === '_orakel' ? showOrakel : () => firePower(id));
       dock.appendChild(b);
     };
     for (const id of a2.mentors) { const m = MENTORS.find((x) => x.id === id); mk(id, m.ic, AGES[m.age].color, `${m.name}: ${m.power.name}`, a2.mcd[id] || 0, m.power.cd); }
     mk('_ritual', 'R', '#ffd166', 'Ritual: Die Sequenz', a2.ritCd, A.T2.ritualCd);
+    mk('_orakel', 'O', '#c77dff', 'Tagesorakel', orakelOffen() ? 0 : 1, 1);
+    updateDock();
   }
+  const orakelOffen = () => !!a().prof && !(a().orakel && a().orakel.date === dayKey());
   function updateDock() {
     const a2 = a();
     for (const b of $('dock').children) {
+      if (b.dataset.id === '_orakel') { b.classList.toggle('ready', orakelOffen()); b.style.setProperty('--p', '0'); continue; }
       const id = b.dataset.id, cd = id === '_ritual' ? a2.ritCd : (a2.mcd[id] || 0), max = id === '_ritual' ? A.T2.ritualCd : MENTORS.find((x) => x.id === id).power.cd;
       b.classList.toggle('ready', cd <= 0); b.style.setProperty('--p', Math.max(0, cd / max * 100).toFixed(1));
     }
@@ -310,7 +325,9 @@ export function createAkt2(C) {
     let html = `<div class="rd-note" style="margin:6px 2px 10px">${HINWEIS}</div>`;
     if (ana) {
       const h = ana.heute;
+      html += orakelHtml();
       html += `<div class="a2card"><h4>Der Himmel heute</h4><div class="rd"><p>${h.phase.name} (${Math.round(h.phase.lit * 100)} % beleuchtet) · Sonne in ${SIGNS[h.sun]} · Mond in ${SIGNS[h.moon]}</p></div>${(fx.sky || []).map((s) => `<div class="rd-fx" style="margin:4px 0">${s}</div>`).join('')}</div>`;
+      html += kalenderHtml();
       for (let i = 0; i < a2.layers; i++) {
         const r = lesen(i, ana);
         html += `<div class="a2card"><h4>${i + 1}/7 · ${r.title}</h4>${r.blocks.map((b) => `<div class="rd"><b>${b.h}</b><p>${b.p}</p></div>`).join('')}<div class="rd-world">${r.world}</div>${fx.lines[i] ? `<div class="rd-fx">${fx.lines[i]}</div>` : ''}</div>`;
@@ -321,6 +338,7 @@ export function createAkt2(C) {
     html += '<button class="btn ghost" id="a2EditData">Meine Daten ändern</button>';
     box.innerHTML = html;
     if ($('a2EditData')) C.onTap($('a2EditData'), () => showEinweihung(true));
+    if ($('a2Orakel')) C.onTap($('a2Orakel'), showOrakel);
   }
   function refreshAll() {
     updateHud(); updateBuffs(); buildDock(); buildGens(); updateLeap(); buildMentors(); buildFate();
@@ -351,6 +369,40 @@ export function createAkt2(C) {
     const ov = $('overlay'); ov.classList.remove('hidden'); document.body.classList.add('cine-mode');
     for (const l of lines) { ov.innerHTML = `<div class="cine">${l}</div>`; await wait(60); ov.firstChild.classList.add('on'); await wait(hold); ov.firstChild.classList.remove('on'); await wait(1300); }
     ov.classList.add('hidden'); ov.innerHTML = ''; document.body.classList.remove('cine-mode');
+  }
+
+  // ── Tagesorakel & Himmelskalender ──────────────────────────
+  const hDate = (d) => d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'long' });
+  const hTime = (d) => d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  async function showOrakel() {
+    const a2 = a(); if (busy || !ana || !fx || C.modalOpen()) return;
+    const dk = dayKey(), gezogen = a2.orakel && a2.orakel.date === dk;
+    const idx = gezogen ? a2.orakel.path : tageskarte(a2.prof, dk), r = orakelLesung(idx, ana);
+    busy = true; K.orakel(); C.world.doFlash('#c77dff', 0.3);
+    const tage = (a2.orakelTage || 0) + (gezogen ? 0 : 1);
+    await ask(`<div class="kicker" style="color:#c77dff">DAS ORAKEL · ${hDate(new Date()).toUpperCase()}</div><h2>${r.titel}</h2><p class="quote">${r.text}</p>
+      <div class="rd"><b>Die Frage des Tages</b><p>${r.frage}</p></div>
+      ${r.himmel.length ? `<div class="rd-world">${r.himmel.join('<br>')}</div>` : ''}
+      <div class="rd-fx">Heute leuchtet dieser Pfad im Baum mit: ist er dunkel, zählt er doppelt, ist er schon an, einmal zusätzlich.<br>Orakel-Tage: ${tage} (dauerhaft +${(Math.min(50, tage) * 0.5).toString().replace('.', ',')} % Produktion).</div>
+      <div class="rd-note">Das Orakel sagt nichts voraus. Es stellt dir eine Frage, die du heute mitnehmen kannst.</div>`, gezogen ? 'Schließen' : 'Ich nehme es mit');
+    if (!gezogen) { a2.orakel = { date: dk, path: idx }; a2.orakelTage = (a2.orakelTage || 0) + 1; recalc(); refreshAll(); save(); }
+    busy = false;
+  }
+  async function showGeburtstag() {
+    const a2 = a(); busy = true; a2.festSeen = dayKey() + 'w';
+    C.music.boom(true); C.world.doFlash('#ffd166', 0.6);
+    await ask(`<div class="kicker" style="color:#ffd166">DEINE SONNENWIEDERKEHR</div><h2>Alles Gute, ${a2.prof.name.split(' ')[0]}</h2><p class="quote">Heute steht die Sonne wieder genau dort, wo sie bei deiner Geburt stand. In der Sprache des Ordens ist das dein persönliches Neujahr.</p><div class="rd-fx">Heute: Produktion ×1,5</div>`, 'Danke');
+    busy = false; save();
+  }
+  function kalenderHtml() {
+    if (!ana) return '';
+    const ev = ana.kalender.slice(0, 8);
+    return `<div class="a2card"><h4>Himmelskalender</h4><small style="margin:-2px 0 8px">Echte Himmelsereignisse der nächsten Wochen. An ihrem Tag wirken sie im Spiel.</small>${ev.map((e) => `<div class="rd"><b style="color:${e.heute ? '#fff' : '#ffd166'}">${e.heute ? 'HEUTE · ' : ''}${e.name}</b><p>${hDate(e.date)}, ${hTime(e.date)} Uhr · ${FEST_INFO[e.typ].effekt}</p></div>`).join('')}</div>`;
+  }
+  function orakelHtml() {
+    const a2 = a(); if (!ana) return '';
+    const gz = a2.orakel && a2.orakel.date === dayKey();
+    return `<div class="a2card" style="border-color:rgba(199,125,255,.4)"><h4 style="color:#c77dff">Das Tagesorakel</h4><div class="rd"><p>${gz ? `Heute gezogen: ${orakelLesung(a2.orakel.path, ana).titel}` : 'Heute wartet eine Karte auf dich.'} · Orakel-Tage: ${a2.orakelTage || 0}</p></div><button class="btn ghost" id="a2Orakel" style="margin:6px 0 0">${gz ? 'Karte ansehen' : 'Tageskarte ziehen'}</button></div>`;
   }
 
   // Einweihung: Name, Geburtsdatum, optional Uhrzeit
@@ -422,6 +474,8 @@ export function createAkt2(C) {
     if (a2.pendingLayer !== null && a2.pendingLayer !== undefined) { showLayer(a2.pendingLayer); return; }
     if (a2.pendingMentor) { showMentor(a2.pendingMentor - 1); return; }
     if (a2.pendingEvent) { showEvent(a2.pendingEvent); return; }
+    if (ana && a2.festSeen !== dayKey() + 'w' && ana.kalender.some((e) => e.heute && e.id === 'wiederkehr')) { showGeburtstag(); return; }
+    if (!skyAsked && ana && orakelOffen()) { skyAsked = true; C.say(['Das Orakel hat heute eine Karte für dich.'], 'plural'); }
   }
 
   // ── Einweihung in das nächste Zeitalter, Finale, Transzendenz ──
@@ -434,7 +488,7 @@ export function createAkt2(C) {
     if (a2.age === A.LAST_AGE) { finale(); return; }
     a2.age++; a2.pendingMentor = a2.age + 1; if (AGE_EVENTS[a2.age]) a2.pendingEvent = a2.age;
     const col = cur().color;
-    C.music.riser && C.music.riser(0.4); C.music.boom(); C.vibrate(40); C.world.doFlash(col, 0.8); C.world.shake = 0.5;
+    K.leap(); C.music.boom(); C.vibrate(40); C.world.doFlash(col, 0.8); C.world.shake = 0.5;
     C.world.burst(C.world.cx, C.world.cy, col, 70, 2);
     recalc(); refreshAll(); save();
     C.say([`${AGES[a2.age].name}. ${AGES[a2.age].years}. Der Grad „${AGES[a2.age].grad}" öffnet sich.`], 'plural');
@@ -442,7 +496,7 @@ export function createAkt2(C) {
   async function finale() {
     const a2 = a(), S = st();
     busy = true; a2.finished = true; save();
-    C.music.boom(true); C.world.doFlash('#ffffff', 1);
+    K.finale(); C.music.boom(true); C.world.doFlash('#ffffff', 1);
     await cine(['Alle zehn Sphären leuchten zugleich.', 'Was der Orden wusste, erkennt sich selbst.', 'Kether öffnet sich.']);
     const key = A.endingKey(a2), en = ORDEN_ENDEN[key];
     await ask(`<div class="kicker" style="color:#ffd166">DAS ENDE DES ORDENS</div><h2>${en.name}</h2><p class="quote">${en.text}</p>`, 'Weiter');
@@ -469,12 +523,12 @@ export function createAkt2(C) {
     active = true; busy = false; ritual = null;
     document.body.classList.add('akt2'); cv.classList.remove('hidden'); $('a2panel').classList.remove('hidden');
     C.world.mode = 'a2'; C.world.z = 7; C.world.zTarget = 7; C.world.zMax = 7;
-    C.music.setLevel(8);
-    layout(); recalc(); startRun(); refreshAll(); setTab('orden'); save();
+    C.music.setLevel(8); skyAsked = false;
+    layout(); recalc(); startRun(); refreshAll(); setTab('orden'); K.start(); K.setState(S.a2); save();
   }
   function leave() {
     const S = st(); active = false; busy = false; ritual = null;
-    S.akt = 1; document.body.classList.remove('akt2'); cv.classList.add('hidden'); $('a2panel').classList.add('hidden');
+    K.stop(); S.akt = 1; document.body.classList.remove('akt2'); cv.classList.add('hidden'); $('a2panel').classList.add('hidden');
     $('dock').innerHTML = ''; $('buffs').innerHTML = '';
     save();
   }
@@ -491,10 +545,19 @@ export function createAkt2(C) {
       if (a2.ritCd > 0) a2.ritCd = Math.max(0, a2.ritCd - dt);
     }
     if (ritual) {
-      if (ritual.phase === 'show') { ritual.t += dt; if (ritual.t > ritual.len * 0.8 + 0.5) { ritual.phase = 'input'; } }
+      if (ritual.phase === 'show') {
+        ritual.t += dt; const hi = Math.floor(ritual.t / 0.8);
+        if (hi !== ritual.lastHi && hi < ritual.len) { ritual.lastHi = hi; K.ritualNote(ritual.seq[hi]); }
+        if (ritual.t > ritual.len * 0.8 + 0.5) { ritual.phase = 'input'; }
+      }
       else { ritual.left -= dt; if (ritual.left <= 0) ritualEnd(false); }
     }
-    uiT += dt; saveT += dt;
+    uiT += dt; saveT += dt; klT += dt;
+    if (klT > 1.5) { klT = 0; K.setState(a2); }
+    if (dayKey() !== lastDay || Date.now() - lastCalc > 3 * 3600e3) {      // neuer Tag oder Himmel hat sich verschoben
+      const neu = dayKey() !== lastDay; lastDay = dayKey(); skyAsked = false; recalc(); refreshAll();
+      if (neu) C.say(['Ein neuer Tag. Das Orakel hat eine Karte für dich.'], 'plural');
+    }
     if (uiT > 0.25) {
       uiT = 0; updateHud(); updateDock(); refreshGens(); updateLeap(); if (a2.buffs.length) updateBuffs(); queue();
     }

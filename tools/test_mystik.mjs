@@ -66,5 +66,26 @@ ok('Analyse: Profil gültig', profiles.has(a.hd.profil), a.hd.profil + ` Tor ${a
 ok('Analyse: nächste Saturnrückkehr liegt in der Zukunft (2048±1)', a.saturnrueckkehr && Math.abs(a.saturnrueckkehr.getFullYear() - 2048) <= 1, a.saturnrueckkehr && a.saturnrueckkehr.toISOString().slice(0, 10));
 ok('Analyse: heutiger Himmel', a.heute.sun === 5 || a.heute.sun === 6, `Sonne ${M.SIGNS[a.heute.sun]}, Mond ${M.SIGNS[a.heute.moon]}, ${a.heute.phase.name}`);
 ok('Analyse: Transite heute (Pluto in Wassermann)', M.signOf(a.heute.transit.pluto) === 10, M.SIGNS[M.signOf(a.heute.transit.pluto)]);
+// Himmelskalender: echte Termine 2026 (UTC) – Toleranz 1 Stunde (Sonne) bzw. 3 Stunden (Mond)
+const hrs = (jd, y, mo, d, h, mi) => Math.abs(jd - jdUTC(y, mo, d, h, mi)) * 24;
+const at = jdUTC(2026, 1, 1);
+const sx = (lon, y, mo, d, h, mi) => { const jd = M.nextSunCrossing(lon, jdUTC(y, mo, d - 6)); return hrs(jd, y, mo, d, h, mi); };
+ok('Frühlings-Tagundnachtgleiche 2026 (20.3. 14:46 UTC)', sx(0, 2026, 3, 20, 14, 46) < 1, sx(0, 2026, 3, 20, 14, 46).toFixed(2) + ' h Abweichung');
+ok('Sommersonnenwende 2026 (21.6. 08:24 UTC)', sx(90, 2026, 6, 21, 8, 24) < 1, sx(90, 2026, 6, 21, 8, 24).toFixed(2) + ' h');
+ok('Herbst-Tagundnachtgleiche 2026 (23.9. 00:05 UTC)', sx(180, 2026, 9, 23, 0, 5) < 1, sx(180, 2026, 9, 23, 0, 5).toFixed(2) + ' h');
+ok('Wintersonnenwende 2026 (21.12. 20:50 UTC)', sx(270, 2026, 12, 21, 20, 50) < 1, sx(270, 2026, 12, 21, 20, 50).toFixed(2) + ' h');
+const mx = (target, y, mo, d, h, mi) => hrs(M.nextElongation(target, jdUTC(y, mo, d - 9)), y, mo, d, h, mi);
+ok('Vollmond 26.9.2026 (≈ 16:49 UTC)', mx(180, 2026, 9, 26, 16, 49) < 3, mx(180, 2026, 9, 26, 16, 49).toFixed(2) + ' h');
+ok('Neumond 10.10.2026 (≈ 15:50 UTC)', mx(0, 2026, 10, 10, 15, 50) < 3, mx(0, 2026, 10, 10, 15, 50).toFixed(2) + ' h');
+ok('Vollmond 24.12.2026 (≈ 01:28 UTC)', mx(180, 2026, 12, 24, 1, 28) < 3, mx(180, 2026, 12, 24, 1, 28).toFixed(2) + ' h');
+const kal = M.kalender(new Date(Date.UTC(2026, 9, 1, 12)), 120, M.sunLongitude(jdUTC(1990, 7, 14, 12)));
+const names = kal.map((e) => e.id);
+ok('Kalender (120 Tage ab 1.10.2026) enthält Voll-/Neumonde, Samhain, Wintersonnenwende', ['vollmond', 'neumond', 'samhain', 'winter'].every((x) => names.includes(x)), names.join(','));
+ok('Kalender ist nach Datum sortiert', kal.every((e, i) => i === 0 || e.jd >= kal[i - 1].jd));
+ok('Sonnenwiederkehr (Geburtstag 14.7.) liegt außerhalb der 120 Tage', !names.includes('wiederkehr'));
+const kal2 = M.kalender(new Date(Date.UTC(2026, 6, 10, 12)), 30, M.sunLongitude(jdUTC(1990, 7, 14, 12)));
+const wk = kal2.find((e) => e.id === 'wiederkehr');
+ok('Sonnenwiederkehr ≈ 14.7.2026 (±1 Tag)', wk && Math.abs(wk.jd - jdUTC(2026, 7, 14, 12)) < 1.2, wk && wk.date.toISOString());
+ok('„heute"-Markierung', M.kalender(new Date(wk.date.getTime()), 5, M.sunLongitude(jdUTC(1990, 7, 14, 12))).some((e) => e.id === 'wiederkehr' && e.heute));
 console.log(fail ? `\n${fail} Test(s) fehlgeschlagen` : '\nAlle Tests bestanden');
 process.exit(fail ? 1 : 0);
