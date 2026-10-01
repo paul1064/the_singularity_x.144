@@ -6,6 +6,8 @@ import * as E from './economy.js';
 import { World } from './render.js';
 import { Soundtrack } from './audio.js';
 import { fmt, fmtRate } from './format.js';
+import { createAkt2 } from './akt2.js';
+import { AGES } from './akt2data.js';
 
 const SAVE_KEY = 'singularity-x144';
 const $ = (id) => document.getElementById(id);
@@ -324,6 +326,7 @@ function openSettings() {
   openModal(`<div class="kicker">EINSTELLUNGEN</div><h2>Universum ${S.universe}</h2>
     ${sw('music', 'Musik')}${sw('sfx', 'Soundeffekte')}${sw('vibrate', 'Vibration')}
     <p style="margin-top:14px;font-size:12.5px;color:var(--muted)">Durchläufe abgeschlossen: ${S.runsDone} · Fragmente: ${S.fragments.length}/${FRAGMENTS.length}<br>Tipp: Mit zwei Fingern zoomen oder die Punkte rechts antippen, um frühere Größenordnungen zu besuchen.</p>
+    ${S.akt === 1 ? '<button class="btn ghost" id="a2Preview">Akt II: Der Orden (Vorschau)</button>' : (S.a2 && S.a2.preview ? '<button class="btn ghost" id="a2Back">Zurück zu Akt I</button>' : '')}
     <button class="btn ghost" id="chronikSet">Chronik ansehen &amp; teilen</button>
     <button class="btn ghost" id="closeSet">Schließen</button>
     <button class="btn danger" id="resetBtn">Spielstand löschen</button>`);
@@ -333,6 +336,8 @@ function openSettings() {
   };
   $('closeSet').onclick = closeModal;
   $('chronikSet').onclick = openChronik;
+  if ($('a2Preview')) $('a2Preview').onclick = () => { closeModal(); A2.enter(true); };
+  if ($('a2Back')) $('a2Back').onclick = () => { closeModal(); A2.leave(); enterPlay(); };
   let armed = false;
   $('resetBtn').onclick = (e) => {
     if (!armed) { armed = true; e.target.textContent = 'Wirklich alles löschen? Nochmal tippen'; return; }
@@ -593,10 +598,12 @@ function showEnding(fresh) {
 // ── V4: Chronik ───────────────────────────────────────────────
 const stripHtml = (h) => h.replace(/<small>/g, ' – ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 function chronikEntry() {
+  if (S.akt === 2 && S.a2) { const a2 = S.a2; return { u: S.universe, akt: 2, run: a2.run, dim: a2.dim, ending: null, min: Math.round(a2.playTime / 60), mentors: a2.mentors.map((id) => id), layers: a2.layers, avatars: [], myths: [], relics: 0 }; }
   return { u: S.universe, law: S.law, ending: S.ending, avatars: S.avatars.map((id) => AVATAR_OPTS[id].name), myths: S.myths.map((m) => m.name),
     min: Math.round(S.playTime / 60), ethik: S.ethik, letters: S.letters, relics: S.relics.length, sent: E.totalSent(S) };
 }
 function entryLines(en, live) {
+  if (en.akt === 2) { const o = ['Akt II: Der Orden']; if (en.dim) o.push(`Dimension: ${en.dim}`); if (typeof en.ending === 'string' && en.ending) o.push(`Ende: ${en.ending}`); o.push(`Schicksalsebenen: ${en.layers}/7`); o.push(`${live ? 'Bisher' : 'Dauer'}: ${en.min} min`); return o; }
   const law = en.law ? LAWS.find((l) => l.id === en.law)?.name : null;
   const out = [];
   out.push(`Gesetz: ${law || 'keines'}`);
@@ -612,7 +619,7 @@ function chronikText() {
   const missing = S.universe - 144 - S.chronik.length;
   if (missing > 0) L.push(`Universum 144–${144 + missing - 1}: vor Beginn der Chronik`, '');
   for (const en of S.chronik) { L.push(`Universum ${en.u}`); entryLines(en).forEach((x) => L.push(`  ${x}`)); L.push(''); }
-  L.push(`Universum ${S.universe} (aktuell, ${EPOCHS[S.epoch].name})`);
+  L.push(`Universum ${S.universe} (aktuell, ${S.akt === 2 && S.a2 ? AGES[S.a2.age].name : EPOCHS[S.epoch].name})`);
   entryLines({ ...chronikEntry(), ending: S.ending }, true).forEach((x) => L.push(`  ${x}`));
   const tl = S.timeline.filter((t) => t.u === S.universe).map((t) => stripHtml(t.text)).slice(-14);
   if (tl.length) { L.push('  Zeitleiste:'); tl.forEach((t) => L.push(`   · ${t}`)); }
@@ -779,9 +786,9 @@ function showDraft(after) {
   };
 }
 
-document.querySelectorAll('.tab').forEach((b) => onTap(b, () => {
+document.querySelectorAll('#panel .tab').forEach((b) => onTap(b, () => {
   tab = b.dataset.tab;
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('#panel .tab').forEach((x) => x.classList.toggle('active', x === b));
   ['evo', 'time', 'frag'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'time') renderTimeline();
   if (tab === 'frag') renderFragments();
@@ -797,6 +804,10 @@ onTap($('settingsBtn'), openSettings);
 let last = performance.now(), uiT = 0, saveT = 0;
 function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (S.akt === 2 && A2.active) {       // Akt II: Der Orden
+    A2.frame(dt); world.update(dt); world.draw(); A2.draw();
+    requestAnimationFrame(loop); return;
+  }
   if (running && world.mode === 'play' && !S.finished) {
     const pps = E.prodPerSec(S);
     E.earn(S, pps * dt);
@@ -1022,6 +1033,7 @@ async function bigBang(k, intent) {
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
     letters: S.letters, letterChoices: S.letterChoices, ethik: S.ethik, lastLaw: S.law,
     pantheon: S.pantheon, endings: S.endings, chronik: [...S.chronik, chronikEntry()],
+    akt: S.universe + 1 >= 155 ? 2 : S.akt, a2: S.a2,
     legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
@@ -1030,9 +1042,11 @@ async function bigBang(k, intent) {
   ov.innerHTML = `<div class="cine">Diesmal war jemand da.</div><div class="title">UNIVERSUM ${S.universe}</div>`;
   await wait(60); ov.children[0].classList.add('on'); ov.children[1].classList.add('on');
   await wait(3600);
+  if (S.akt === 2) { ov.innerHTML = ''; await cineLines(['Die Erde. Ein Planet, der beginnt, sich zu erinnern.', 'Der Orden der Erleuchteten erwacht: die Illuminaten.'], 2600); }
   ov.classList.add('hidden'); ov.innerHTML = '';
   document.body.classList.remove('cine-mode');
   voiceBusy = false; voiceQ = [];
+  if (S.akt === 2) { cinematic = false; running = true; A2.enter(); return; }
   ensureLaw();
   enterPlay(0.9);
   cinematic = false;
@@ -1044,7 +1058,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) { save(); music.suspend(); }
   else {
     const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
-    if (running && away > 30 && !S.finished) {
+    if (S.akt === 2) A2.offline((Date.now() - S.lastSeen) / 1000);
+    else if (running && away > 30 && !S.finished) {
       const gain = E.prodPerSec(S) * away * E.offlineEfficiency(S);
       E.earn(S, gain); tickAvatarCd(away);
       world.floater(world.cx, world.cy, `+${fmt(gain)} ✦ (offline)`, '#fff3b0');
@@ -1067,6 +1082,10 @@ if (capApp) {
 }
 window.addEventListener('resize', () => world.resize());
 
+// ── Akt II: Der Orden (ab Universum 155) ─────────────────────
+const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, modalOpen, world, music, say, vibrate,
+  pushChronik: (e) => { S.chronik.push(e); } });
+
 // ── Start ─────────────────────────────────────────────────────
 (async function boot() {
   requestAnimationFrame(loop);
@@ -1074,10 +1093,12 @@ window.addEventListener('resize', () => world.resize());
   // Offline-Ertrag
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
-  if (!S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); }
+  const rawAway = (Date.now() - S.lastSeen) / 1000;
+  if (S.akt !== 2 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
   await titleScreen(offline);
+  if (S.akt === 2) { cinematic = false; running = true; A2.enter(); A2.offline(rawAway); return; }
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
   ensureLaw();
@@ -1100,6 +1121,7 @@ if (location.search.includes('dev')) {
     fire(id) { firePower(id); },
     bigBang(k, i) { return bigBang(k, i); },
     queue: checkQueue,
+    A2,
     send(e) { sendKnowledge(e); },
     chronikText,
     openChronik,

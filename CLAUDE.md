@@ -36,7 +36,7 @@ aber mit weniger Knoten und mehr epischen Momenten. Vollständiges Design: `docs
 
 ## Android-Build
 - Lokal: `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (braucht Android SDK 35, JDK 21).
-- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v4.apk` (Bot-Commit „APK bauen [skip ci]").
+- CI: `.github/workflows/android.yml` baut bei jedem Push auf `main` die Debug-APK → Artifact `the-singularity-x144-apk` und committet sie als `release/the-singularity-x144-v5.apk` (Bot-Commit „APK bauen [skip ci]").
 - Nach Änderungen an `www/` immer `npx cap sync android`. Icon/Splash: `python3 tools/make-assets.py && npx capacitor-assets generate --android`.
 - Zurück-Taste (in `main.js`): schließt offenes Fenster, sonst speichern + App minimieren.
 - Screenshots: `python3 tools/screens.py <ordner>` (Ergebnisse in `docs/screens/`).
@@ -72,7 +72,7 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - **Button-Eingabe über `onTap` (pointerup)** statt `click`: Android erzeugt kein `click`, solange andere Finger gedrückt sind. So lassen sich Upgrades kaufen, während drei Finger weiter die Welt antippen. Wischen (>14 px oder `pointercancel`) kauft nichts.
 - **Vermächtnis & Relikte:** Beim Urknall werden die gewählten Avatare in `S.legacy` (bleibt über Durchläufe) gespeichert. Im neuen Universum liegt jeder je gewählte Avatar (je `id` einmal) als **Relikt** in seiner Epoche: bernsteinfarbene Raute, nur auf der passenden Zoom-Ebene sichtbar/antippbar (Rail-Punkt pulsiert amber). Einsammeln → Lore-Fenster (`RELIC_TEXT`) + **Echo** = halbe Aura-Wirkung für den Durchlauf (`auraMult`). Anreiz: pro Durchlauf andere Avatare wählen, Relikt-Sammlung erweitern.
 - Test: `python3 tools/test_erbe.py <ordner>` (Kauf bei gehaltenen Fingern per CDP, Relikte, Echo, Vermächtnis). Hinweis CDP: `touchEnd` beendet nur die genannten Finger, `[]` beendet alle.
-- Dateiname der CI-APK: `release/the-singularity-x144-v4.apk` (ältere v1–v3 bleiben als Archiv im Repo).
+- Dateiname der CI-APK: `release/the-singularity-x144-v5.apk` (ältere v1–v4 bleiben als Archiv im Repo).
 
 ### V3.1: Story & Abwechslung
 - **Briefe der Vorgänger** (`LETTERS`, 10 Stück, Universum 143 → 1): ab Durchlauf 2 kommt beim Eintritt in Landgang (Epoche 4) und Technosphäre (Epoche 7) je ein Brief, der Reihe nach (`S.letters`, bleibt über Durchläufe). Einige haben Antworten (`ethik` ±1, bleibt). Der 10. Brief („Ich", Universum 1) hat je nach Ethik eine andere Schlusspassage und schließt den Bogen („Ich bin du. Ich war es immer."). Archiv im Fragmente-Tab.
@@ -90,5 +90,15 @@ Fertig (V1-Kern, im Browser getestet, ganzer Loop läuft fehlerfrei):
 - **Chronik** (`S.chronik`, bleibt): pro abgeschlossenem Universum ein Eintrag (Gesetz, Ende, Avatare, Mythen, Dauer …). Ansicht/Teilen über Zeitlinie-Tab oder Einstellungen; Teilen über `@capacitor/share` (Android-Teilen-Menü), Fallback `navigator.share`/Zwischenablage.
 - Finale-Moment „Der Gedanke formt sich": nur noch **3 Finger** (Ringe kompakt, großzügige Trefferzone).
 - Test: `python3 tools/test_v4.py <ordner>` (dauert ~1 min wegen der Schlusszeilen vor der Ende-Szene). Hinweis: `__dev.leapNow()` im Finale nicht awaiten (Promise endet erst nach Klick auf „Den Gedanken denken").
+
+### V5.0: AKT II — Der Orden (ab Universum 155)
+Ein neues Spiel im Spiel: Der Spieler steuert einen Geheimbund (die „Illuminaten", ausdrücklich als erfundene Geschichte gekennzeichnet) auf der Erde und vermehrt das Wissen der Menschheit.
+- **Auslöser:** `bigBang` setzt ab Universum 155 `S.akt = 2`. Zustand in `S.a2` (siehe `newA2` in `akt2econ.js`). Vorschau jederzeit über Einstellungen → „Akt II: Der Orden (Vorschau)" (`a2.preview`, Rückweg „Zurück zu Akt I", rührt Universumsnummer und Chronik von Akt I nicht an).
+- **Dateien:** `mystik.js` (reine Berechnung), `akt2data.js` (Inhalte), `akt2read.js` (Deutungstexte der Schicksalsebenen), `akt2econ.js` (reine Ökonomie), `akt2.js` (UI/Logik/Zeichnung, `createAkt2(ctx)`). main.js bindet es ein (`A2`, Schleife: `if (S.akt === 2 && A2.active)`).
+- **Kern:** Baum des Lebens (10 Sephiroth + verborgenes Daath ab Dimension 1) ist Karte und Bedienung: Sephira antippen = kaufen, Leere antippen = Wissen sammeln (Mehrfinger bis 5). 22 Pfade (+6 verborgene) leuchten, wenn beide Enden ≥ 7 haben (+6 % je Pfad). Heilige Zahlen (3/7/12/22/33/72/144) verstärken je ×1,3. Acht Zeitalter (Atlantis → Informationszeit) mit Graden, je ein **Mentor** (Thoth, Hermes Trismegistos, Pythagoras, Hildegard, Paracelsus, Weishaupt, Tesla, Ada Lovelace: Aura + aktive Kraft + 3 „Lehren") und ein Weltereignis (Bewahren +1 / Offenbaren −1 → Ende „Hüter/Bote/Vermittler"). **Ritual „Die Sequenz"** (Merkspiel auf dem Baum). Gleichartige Schübe stapeln nicht (nur der stärkste zählt).
+- **Schicksal:** Name + Geburtsdatum (+ optional Zeit) bleiben lokal. `mystik.analyse` rechnet **echt**: Sonne (±0,01°), Mond (±0,3°), Jupiter–Pluto (JPL-Elemente, ±1°), Lebens-/Namenszahlen (Pythagoras, Gematria), Human Design vereinfacht (Sonnen-Tor/Linie + Design-Sonne 88° vorher + Profil), Sonne–Mond-Aspekt, Geburtsphase, echte nächste Saturn-/Jupiterrückkehr, persönliches Jahr, Transite von heute. Pro Durchgang wird **eine von 7 Schicksalsebenen** enthüllt (`LAYER_TITLES`), jede mit Deutung, „Die Welt und du"-Absatz und spürbarem Spielbonus (`computeFx`). Zusätzlich echte **Himmelslage** (Mond/Sonne heute). Hinweis „Symbolsprache, keine Wissenschaft" steht überall dabei.
+- **Transzendente Singularität:** Kether-Einweihung → Ende des Ordens → neue **Dimension** (9 Stück in `DIMENSIONS`, dauerhaft Produktion ×1,25 + Spezialeffekt, Daath, neue heilige Geometrie im Hintergrund) → neuer Durchgang (Universum +1), Ebenen und Profil bleiben.
+- **Balance** (`node tools/simulate_akt2.mjs`, ideal gespielt): Durchgang 1 ≈ 44 min, 7 ≈ 30 min, Dimension 1 ≈ 32, Dim 3 ≈ 26, Dim 6 ≈ 13 min. Stellschrauben: `T2` in `akt2econ.js` (costTier/prodTier/leapTier/msMult/leapRun) und `(1 + 0.8·dim)` in `leapCost`.
+- **Tests:** `node tools/test_mystik.mjs` (Referenzwerte: Meeus, Äquinoktien, echte Planeten-Zeichenwechsel 2024/25), `python3 tools/test_akt2.py <ordner>` (~2 min, 50 Prüfungen inkl. Mehrfinger, Ritual, Finale, Neustart, Übergang 155).
 
 Offen: siehe „Nächste Schritte" in `docs/GDD.md` bzw. die Aufgabe, mit der die Sitzung gestartet wurde.

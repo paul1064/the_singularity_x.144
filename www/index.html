@@ -9,6 +9,7 @@
 </head>
 <body>
   <canvas id="world"></canvas>
+  <canvas id="a2c" class="hidden"></canvas>
 
   <!-- Oberer Bereich -->
   <header id="hud">
@@ -52,6 +53,22 @@
     </div>
     <div class="tab-body hidden" id="tab-time"><div id="timeline"></div></div>
     <div class="tab-body hidden" id="tab-frag"><div id="fragList"></div></div>
+  </section>
+
+  <!-- Akt II: Der Orden -->
+  <section id="a2panel" class="hidden">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-a2tab="orden">Orden</button>
+      <button class="tab" data-a2tab="lehrer">Lehrer</button>
+      <button class="tab" data-a2tab="schicksal">Schicksal</button>
+    </div>
+    <div class="tab-body" id="a2-orden">
+      <div id="a2Leap"></div>
+      <div class="buy-mode" id="a2Buy"><button data-n="1" class="active">×1</button><button data-n="10">×10</button><button data-n="max">MAX</button></div>
+      <div id="a2Gens"></div>
+    </div>
+    <div class="tab-body hidden" id="a2-lehrer"></div>
+    <div class="tab-body hidden" id="a2-schicksal"></div>
   </section>
 
   <!-- Vollbild-Ebenen -->

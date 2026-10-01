@@ -62,6 +62,8 @@ export function newState() {
     chronik: [],            // V4: abgeschlossene Universen (bleibt)
     sent: {},               // V4: Zeitparadox: Sendungen je Epoche (dieser Durchlauf)
     paradox: 0,             // V4: Paradox-Pegel 0–100
+    akt: 1,                 // V5: 1 = Evolution, 2 = Der Orden (ab Universum 155)
+    a2: null,               // V5: Zustand von Akt II (siehe akt2econ.js)
     lastLaw: null,          // V3: Gesetz des vorherigen Universums (kein direkter Wiederholer)
     law: null,              // V3: Kosmisches Gesetz dieses Universums (ab Durchlauf 2)
     pendingLaw: false,      // V3: Gesetz wurde noch nicht angezeigt

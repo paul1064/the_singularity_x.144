@@ -275,6 +275,7 @@ export class World {
 
     if (this.mode === 'void') this._drawVoid();
     else if (this.mode === 'bang') this._drawBang();
+    else if (this.mode === 'a2') { /* Akt II: nur Sterne; der Baum wird auf einer eigenen Fläche gezeichnet */ }
     else {
       // Ebenen von außen (groß) nach innen (klein) zeichnen
       for (let k = Math.min(7, this.zMax); k >= 0; k--) {
