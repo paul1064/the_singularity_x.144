@@ -157,9 +157,34 @@ export const dateOfJD = (jd) => new Date((jd - 2440587.5) * 86400000);
 
 // ── Alles zusammen ────────────────────────────────────────────
 // profile: { name, y, m, d, h?, min? } (Ortszeit des Geräts; ohne Uhrzeit 12:00)
+// ── Geburtsort & Ortszeit ─────────────────────────────────────
+// Ortszeit (Wanduhr) in einer IANA-Zeitzone → exakter Zeitpunkt (berücksichtigt damals gültige Sommerzeit)
+function tzOffsetMin(utcMs, tz) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+    .formatToParts(new Date(utcMs)).map((q) => [q.type, +q.value]));
+  return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(utcMs / 1000) * 1000) / 60000;
+}
+export function localToDate(y, m, d, h, min, tz) {
+  if (!tz) return new Date(y, m - 1, d, h, min, 0);                  // ohne Ort: Zeitzone des Geräts
+  const wall = Date.UTC(y, m - 1, d, h, min, 0);
+  let utc = wall - tzOffsetMin(wall, tz) * 60000;
+  utc = wall - tzOffsetMin(utc, tz) * 60000;                          // zweiter Durchgang an Sommerzeitgrenzen
+  return new Date(utc);
+}
+// Aszendent und Medium Coeli (Himmelsmitte) für Zeitpunkt jd, geografische Breite/Länge in Grad (Ost positiv)
+export function ascMc(jd, lat, lon) {
+  const T = (jd - 2451545) / 36525;
+  const ramc = mod(280.46061837 + 360.98564736629 * (jd - 2451545) + 0.000387933 * T * T + lon, 360);
+  const eps = 23.4392911 - 0.0130042 * T;
+  const mc = mod(Math.atan2(sin(ramc), cos(ramc) * cos(eps)) / D2R, 360);
+  const asc = mod(Math.atan2(cos(ramc), -(sin(ramc) * cos(eps) + Math.tan(lat * D2R) * sin(eps))) / D2R, 360);
+  return { asc, mc };
+}
+
 export function analyse(profile, now = new Date()) {
   const { name, y, m, d } = profile, h = profile.h ?? 12, min = profile.min ?? 0;
-  const birth = new Date(y, m - 1, d, h, min, 0);
+  const ort = profile.ort || null;
+  const birth = localToDate(y, m, d, h, min, ort ? ort.tz : null);
   const jd = julianDay(birth), jdNow = julianDay(now);
   const sunLon = sunLongitude(jd), moonLon = moonLongitude(jd);
   const sun = signOf(sunLon), moon = signOf(moonLon);
@@ -172,7 +197,8 @@ export function analyse(profile, now = new Date()) {
   for (const p of PLANETS) transit[p] = planetLongitude(p, jdNow);
   return {
     birth, jd, sunLon, moonLon, sun, moon, sunElement: elementOf(sun), moonElement: elementOf(moon),
-    hasTime: profile.h !== undefined && profile.h !== null,
+    hasTime: profile.h !== undefined && profile.h !== null, ort,
+    hori: ort && profile.h !== undefined && profile.h !== null ? (() => { const r = ascMc(jd, ort.lat, ort.lon); return { ...r, ascZ: signOf(r.asc), mcZ: signOf(r.mc), hausSonne: ((signOf(sunLon) - signOf(r.asc) + 12) % 12) + 1, hausMond: ((signOf(moonLon) - signOf(r.asc) + 12) % 12) + 1 }; })() : null,
     lebensweg: lp, name: nn, gematria: gem, gematriaSephira: sephiraFromNumber(reduceNum(gem)),
     lebensSephira: sephiraFromNumber(lp), sonnenSephira: sephiraOfSign(sun), mondSephira: sephiraOfSign(moon),
     aspekt: aspectBetween(sunLon, moonLon), geburtsphase: moonPhase(jd),

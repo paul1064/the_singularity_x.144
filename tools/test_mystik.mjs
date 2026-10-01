@@ -87,5 +87,19 @@ const kal2 = M.kalender(new Date(Date.UTC(2026, 6, 10, 12)), 30, M.sunLongitude(
 const wk = kal2.find((e) => e.id === 'wiederkehr');
 ok('Sonnenwiederkehr ≈ 14.7.2026 (±1 Tag)', wk && Math.abs(wk.jd - jdUTC(2026, 7, 14, 12)) < 1.2, wk && wk.date.toISOString());
 ok('„heute"-Markierung', M.kalender(new Date(wk.date.getTime()), 5, M.sunLongitude(jdUTC(1990, 7, 14, 12))).some((e) => e.id === 'wiederkehr' && e.heute));
+
+// ── Geburtsort: Ortszeit und Aszendent ────────────────────────
+ok('Wien 14.7.1990 14:30 (MESZ) = 12:30 UTC', M.localToDate(1990, 7, 14, 14, 30, 'Europe/Vienna').toISOString() === '1990-07-14T12:30:00.000Z');
+ok('New York 20.7.1969 16:17 (EDT) = 20:17 UTC', M.localToDate(1969, 7, 20, 16, 17, 'America/New_York').toISOString() === '1969-07-20T20:17:00.000Z');
+ok('Winterzeit Wien 15.1.2000 08:00 = 07:00 UTC', M.localToDate(2000, 1, 15, 8, 0, 'Europe/Vienna').toISOString() === '2000-01-15T07:00:00.000Z');
+// Einstein: Ulm 14.3.1879 11:30 Ortszeit (LMT = UTC + 40 min) → Aszendent ≈ 11° Krebs, MC in den Fischen (Astro-Datenbank)
+const ein = M.ascMc(jdUTC(1879, 3, 14, 10, 50), 48.4, 10.0);
+ok('Einstein: Aszendent Krebs ≈ 11–12°', ein.asc > 100 && ein.asc < 102 + 12 - 1 && Math.abs((ein.asc % 30) - 11.5) < 1.5, (ein.asc % 30).toFixed(2) + ' Krebs');
+ok('Einstein: Himmelsmitte in den Fischen', Math.floor(ein.mc / 30) === 11, ein.mc.toFixed(2));
+const eq = M.ascMc(jdUTC(2000, 1, 1, 12), 0, 0);
+ok('Aszendent liegt etwa 90–100° nach der Himmelsmitte (Äquator)', ((eq.asc - eq.mc + 360) % 360) > 85 && ((eq.asc - eq.mc + 360) % 360) < 100);
+const an = M.analyse({ name: 'Test Person', y: 1990, m: 7, d: 14, h: 14, min: 30, ort: { n: 'Wien', lat: 48.21, lon: 16.37, tz: 'Europe/Vienna' } }, new Date(Date.UTC(2026, 9, 1)));
+ok('analyse mit Ort liefert Aszendent und Häuser', an.hori && an.hori.hausSonne >= 1 && an.hori.hausSonne <= 12 && an.birth.toISOString() === '1990-07-14T12:30:00.000Z');
+ok('analyse ohne Ort bleibt wie zuvor (hori = null)', M.analyse({ name: 'Test Person', y: 1990, m: 7, d: 14 }, new Date()).hori === null);
 console.log(fail ? `\n${fail} Test(s) fehlgeschlagen` : '\nAlle Tests bestanden');
 process.exit(fail ? 1 : 0);

@@ -10,6 +10,7 @@ import * as A from './akt2econ.js';
 import { analyse, SIGNS } from './mystik.js';
 import { lesen, LAYER_TITLES, HINWEIS } from './akt2read.js';
 import { fmt, fmtRate } from './format.js';
+import { ORTE, ZONEN, ortLabel, findeOrt, profilOrt } from './orte.js';
 import { OrdenKlang } from './akt2audio.js';
 import { tageskarte, orakelLesung, dayKey, FEST_INFO } from './akt2orakel.js';
 
@@ -335,6 +336,7 @@ export function createAkt2(C) {
       if (a2.layers < 7) html += `<div class="a2card locked">Die nächste Ebene („${LAYER_TITLES[a2.layers]}") wird beim Beginn des nächsten Durchgangs enthüllt.</div>`;
       else html += `<div class="a2card locked">Alle sieben Ebenen sind enthüllt. Jede Dimension vertieft, was du gesehen hast.</div>`;
     }
+    if (ana && !ana.ort) html += '<div class="rd-note" style="margin:8px 0">Für exakte Berechnungen fehlt noch dein Geburtsort (Ortszeit, Aszendent).</div>';
     html += '<button class="btn ghost" id="a2EditData">Meine Daten ändern</button>';
     box.innerHTML = html;
     if ($('a2EditData')) C.onTap($('a2EditData'), () => showEinweihung(true));
@@ -416,8 +418,15 @@ export function createAkt2(C) {
       <label class="field">Name<input id="pfName" type="text" autocomplete="off" maxlength="40" placeholder="Dein vollständiger Name" value="${(p.name || '').replace(/"/g, '&quot;')}"></label>
       <label class="field">Geburtsdatum<input id="pfDate" type="date" value="${dv}"></label>
       <label class="field">Geburtszeit (optional, macht den Mond genauer)<input id="pfTime" type="time" value="${tv}"></label>
+      <label class="field">Geburtsort (optional, für Aszendent und exakte Ortszeit)<input id="pfOrt" list="pfOrte" type="text" autocomplete="off" placeholder="Stadt eintippen …" value="${p.ort ? (p.ort.land ? `${p.ort.n}, ${p.ort.land}` : p.ort.n).replace(/"/g, '&quot;') : ''}"></label>
+      <datalist id="pfOrte">${ORTE.map((o) => `<option value="${ortLabel(o)}">`).join('')}</datalist>
+      <details class="rd-note" id="pfAnders" ${p.ort && !p.ort.land ? 'open' : ''}><summary>Ort nicht in der Liste?</summary>
+        <label class="field">Breite (° Nord, z. B. 48.21)<input id="pfLat" type="number" step="0.01" min="-90" max="90" value="${p.ort && !p.ort.land ? p.ort.lat : ''}"></label>
+        <label class="field">Länge (° Ost, West negativ, z. B. 16.37)<input id="pfLon" type="number" step="0.01" min="-180" max="180" value="${p.ort && !p.ort.land ? p.ort.lon : ''}"></label>
+        <label class="field">Zeitzone<select id="pfTz">${ZONEN.map(([id, n]) => `<option value="${id}" ${p.ort && p.ort.tz === id ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+      </details>
       <div class="rd-note" id="pfErr" style="color:#ff9bab"></div>
-      <p class="rd-note">Alles bleibt auf deinem Gerät und wird nirgends hingesendet. Berechnet werden Sonnen- und Mondstand, Zahlen und Lebenszyklen (ohne Geburtsort). Der Orden in diesem Spiel ist eine erfundene Geschichte. ${HINWEIS}</p>
+      <p class="rd-note">Alles bleibt auf deinem Gerät und wird nirgends hingesendet. Berechnet werden Sonnen- und Mondstand, Zahlen und Lebenszyklen, mit Geburtsort und -zeit auch Aszendent, Himmelsmitte und die damals gültige Ortszeit (inkl. Sommerzeit). Der Orden in diesem Spiel ist eine erfundene Geschichte. ${HINWEIS}</p>
       <button class="btn" id="pfGo">${edit ? 'Speichern' : 'Einweihen'}</button>${edit ? '<button class="btn ghost" id="pfCancel">Abbrechen</button>' : ''}`, false);
     if (edit) $('pfCancel').onclick = () => { C.closeModal(); busy = false; };
     $('pfGo').onclick = () => {
@@ -429,6 +438,15 @@ export function createAkt2(C) {
       const y = +m[1], mo = +m[2], d = +m[3];
       if (y < 1900 || new Date(y, mo - 1, d) > new Date()) return err('Das Datum liegt außerhalb des Möglichen.');
       const prof = { name, y, m: mo, d };
+      const otxt = $('pfOrt').value.trim(), lat = $('pfLat').value, lon = $('pfLon').value;
+      if (lat !== '' || lon !== '') {
+        if (lat === '' || lon === '' || Math.abs(+lat) > 90 || Math.abs(+lon) > 180) return err('Bitte gib Breite (−90 bis 90) und Länge (−180 bis 180) an.');
+        prof.ort = { n: otxt || 'Eigener Ort', lat: +lat, lon: +lon, tz: $('pfTz').value };
+      } else if (otxt) {
+        const o = findeOrt(otxt);
+        if (!o) { $('pfAnders').open = true; return err('Diesen Ort kenne ich nicht. Wähle einen Vorschlag aus der Liste oder gib unten Breite, Länge und Zeitzone ein.'); }
+        prof.ort = profilOrt(o);
+      }
       if (tstr) { const [hh, mm] = tstr.split(':').map(Number); prof.h = hh; prof.min = mm; }
       a2.prof = prof; recalc(); C.closeModal(); busy = false; save();
       refreshAll();

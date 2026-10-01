@@ -58,6 +58,19 @@ const sign = (lon) => SIGNS[signOf(lon)];
 // resonante Epoche einer Sephira (gen-Index i schaltet im Zeitalter max(0, i−2) frei)
 const resAge = (seph) => Math.max(0, gi(seph) - 2);
 
+const ASC = [
+  'Du trittst direkt und mutig auf, bist der Erste, der losgeht.', 'Du wirkst ruhig und verlässlich, ein Mensch, der sich Zeit nimmt.',
+  'Du wirkst neugierig, wendig und gesprächig.', 'Du wirkst sanft und schützend, andere fühlen sich bei dir aufgehoben.',
+  'Du wirkst warm und präsent, ein Raum füllt sich mit dir.', 'Du wirkst aufmerksam und klar, mit Blick fürs Wesentliche.',
+  'Du wirkst freundlich und ausgleichend, mit einem Gespür für Schönes.', 'Du wirkst intensiv und tief, dein Blick bleibt hängen.',
+  'Du wirkst offen und unternehmungslustig, immer auf dem Weg.', 'Du wirkst ernst und beständig, ein Mensch mit Haltung.',
+  'Du wirkst eigen und unabhängig, ein bisschen aus der Zeit gefallen.', 'Du wirkst träumerisch und einfühlsam, ein feines Sensorium.',
+];
+const MC_TEXT = ['Dein Ruf eilt dir voraus: Du führst gern.', 'Du suchst Beständiges: etwas, das bleibt.', 'Du wirkst durch Wort und Austausch.', 'Du wirkst durch Fürsorge und Wurzeln.',
+  'Du suchst die Bühne und das Schöpferische.', 'Du wirkst durch Handwerk und Dienst.', 'Du wirkst durch Vermittlung und Gestaltung.', 'Du wirkst durch Wandlung und Tiefe.',
+  'Du wirkst durch Vision und Lehre.', 'Du suchst Verantwortung und Meisterschaft.', 'Du wirkst durch Erneuerung und Gemeinschaft.', 'Du wirkst durch Mitgefühl und Kunst.'];
+const HAUS = ['Selbst', 'Besitz', 'Austausch', 'Heim', 'Freude und Schöpfung', 'Alltag und Dienst', 'Beziehung', 'Wandlung', 'Sinn und Ferne', 'Berufung', 'Gemeinschaft', 'Rückzug und Traum'];
+
 export function lesen(layer, a) {
   const L = [];
   let world = '', title = LAYER_TITLES[layer];
@@ -88,6 +101,15 @@ export function lesen(layer, a) {
     const asp = a.aspekt, ph = a.geburtsphase.name;
     L.push({ h: asp ? `Sonne ${asp.name} Mond` : 'Sonne und Mond', p: ASPEKT[asp ? asp.id : 'keiner'] });
     L.push({ h: `Geburtsphase: ${ph}`, p: PHASE[ph] });
+    if (a.hori) {
+      const hr = a.hori;
+      L.push({ h: `Aszendent ${SIGNS[hr.ascZ]} · Himmelsmitte ${SIGNS[hr.mcZ]}`, p: `Gerechnet für ${a.ort.n} und die damalige Ortszeit. ${ASC[hr.ascZ]} ${MC_TEXT[hr.mcZ]}` });
+      L.push({ h: `Sonne im ${hr.hausSonne}. Haus, Mond im ${hr.hausMond}. Haus`, p: `Nach Häusern gleicher Zeichen: Deine Sonne wirkt im Feld „${HAUS[hr.hausSonne - 1]}", dein Mond im Feld „${HAUS[hr.hausMond - 1]}".` });
+    } else if (!a.ort) {
+      L.push({ h: 'Aszendent', p: 'Ohne Geburtsort und -zeit lässt sich der Aszendent nicht berechnen. Ergänze beides unter „Meine Daten ändern", dann wird er hier gedeutet.' });
+    } else if (!a.hasTime) {
+      L.push({ h: 'Aszendent', p: 'Für den Aszendenten fehlt die Geburtszeit. Ergänze sie unter „Meine Daten ändern".' });
+    }
     L.push({ h: `Dein Gleichgewicht`, p: a.sunElement === a.moonElement ? `Sonne und Mond stehen beide im Element ${a.sunElement}: Du lebst, was du fühlst, sehr konzentriert.` : `Sonne im Element ${a.sunElement}, Mond im Element ${a.moonElement}: Du verbindest zwei Arten, die Welt zu erleben.` });
     world = asp && ['quadrat', 'opposition'].includes(asp.id) ? 'Die Welt deines Ordens kennt Reibung: Wendepunkte entstehen dort, wo Gegensätze aufeinandertreffen.' : 'Die Welt deines Ordens findet oft Wege, in denen Gegensätze einander dienen.';
   } else if (layer === 5) {

@@ -79,6 +79,22 @@ try:
           const f=o.festFx([{typ:'sonnenfest',name:'x',heute:true},{typ:'vollmond',name:'y',heute:true},{typ:'neumond',name:'z',heute:false}]);return f.fx})()""")
         check('Fest-Wirkungen: Sonnenfest ×1,3 + Vollmond Tippen ×1,5, Neumond nicht heute', abs(r['prod'] - 1.3) < 1e-9 and r['tap'] == 1.5 and r['rit'] == 1, json.dumps(r))
 
+        # Geburtsort
+        pg.evaluate("[...document.querySelectorAll('#a2panel .tab')].find(t=>/Schicksal/.test(t.textContent)).click()"); pg.wait_for_timeout(300)
+        check('Hinweis: Geburtsort fehlt noch', 'fehlt noch dein Geburtsort' in pg.evaluate("document.getElementById('a2panel').textContent"))
+        pg.evaluate("window.__dev.A2.dev.showEinweihung(true)"); pg.wait_for_timeout(400)
+        check('Einweihung fragt nach Geburtsort', pg.evaluate("!!document.getElementById('pfOrt') && document.getElementById('pfOrte').options.length>80"))
+        pg.fill('#pfTime', '14:30'); pg.fill('#pfOrt', 'Atlantis'); pg.click('#pfGo'); pg.wait_for_timeout(300)
+        check('unbekannter Ort wird abgelehnt', 'kenne ich nicht' in pg.inner_text('#pfErr'))
+        pg.fill('#pfOrt', 'Wien, Österreich'); pg.click('#pfGo'); pg.wait_for_timeout(600)
+        ort = S('a2.prof.ort')
+        check('Ort gespeichert (Wien, Zeitzone)', ort and ort['n'] == 'Wien' and ort['tz'] == 'Europe/Vienna', json.dumps(ort))
+        ana = pg.evaluate("(()=>{const a=window.__dev.A2.dev.ana; return a? {iso:a.birth.toISOString(), asc:a.hori&&a.hori.ascZ}:null})()")
+        check('Geburtszeit als echte Ortszeit (14:30 MESZ = 12:30 UTC), Aszendent berechnet', ana and ana['iso'] == '1990-07-14T12:30:00.000Z' and ana['asc'] is not None, json.dumps(ana))
+        pg.evaluate("window.__dev.A2.dev.showEinweihung(true)"); pg.wait_for_timeout(300)
+        pg.evaluate("document.getElementById('pfAnders').open=true"); pg.fill('#pfOrt', ''); pg.fill('#pfLat', '35.0'); pg.fill('#pfLon', '139.0'); pg.select_option('#pfTz', 'Asia/Tokyo'); pg.click('#pfGo'); pg.wait_for_timeout(500)
+        check('Eigener Ort per Koordinaten', S('a2.prof.ort.tz') == 'Asia/Tokyo' and S('a2.prof.ort.lat') == 35)
+
         # Klang
         pg.wait_for_timeout(800)
         res = pg.evaluate("""(async()=>{const m=window.__dev.music; if(!m.ctx) return {ctx:false};
