@@ -4,6 +4,8 @@
 //  Ordnung (Tippen, Kaufen, Mutationen, Kräfte, Momente …) drängt sie zurück.
 //  Bei 100 % bricht sie durch (Kollaps); vor den großen Evolutionssprüngen wartet je ein Boss.
 // ─────────────────────────────────────────────────────────────
+import { erbeFx } from './erbe.js';
+
 export const ENT = {
   fromRun: 3,            // ab dem 4. Durchlauf (Universum 147)
   penaltyStart: 30,      // ab diesem Wert (%) sinkt die Produktion
@@ -16,15 +18,15 @@ export const ENT = {
 };
 export const entActive = (S) => S.akt !== 2 && S.runsDone >= ENT.fromRun && !S.finished;
 // Anstieg in Prozentpunkten pro Sekunde: später (Epoche) und in älteren Universen schneller; jeder offene Riss gibt Zusatz
-export const entRate = (S, cracks = 0) => (0.05 + 0.02 * S.epoch) * (1 + 0.05 * Math.min(10, Math.max(0, S.runsDone - ENT.fromRun))) + cracks * 0.05;
-export const entMult = (S) => 1 - ENT.penaltyMax * Math.max(0, ((S.entropy || 0) - ENT.penaltyStart) / (100 - ENT.penaltyStart));
+export const entRate = (S, cracks = 0) => (0.05 + 0.02 * S.epoch) * (1 + 0.05 * Math.min(10, Math.max(0, S.runsDone - ENT.fromRun))) * erbeFx(S).entRate + cracks * 0.05;
+export const entMult = (S) => 1 - ENT.penaltyMax * erbeFx(S).penalty * Math.max(0, ((S.entropy || 0) - ENT.penaltyStart) / (100 - ENT.penaltyStart));
 export const bossBonus = (S) => 1 + ENT.bossBonus * Math.min(ENT.bossBonusMax, S.bossWins || 0);
 export const entStage = (e) => (e < 25 ? 0 : e < 50 ? 1 : e < 75 ? 2 : 3);
 export const STAGE_NAME = ['ruhig', 'Verblassen', 'Risse', 'Verfall'];
 
 // Erleichterung in Prozentpunkten
 export const RELIEF = { tap: 0.04, buy: 0.3, mutation: 5, glitch: 3, power: 8, moment: 10, cosmos: 10, cosmosNutzen: 3, crack: 6, relic: 4, leap: 15 };
-export function relief(S, kind, n = 1) { S.entropy = Math.max(0, (S.entropy || 0) - (RELIEF[kind] || 0) * n); return S.entropy; }
+export function relief(S, kind, n = 1) { S.entropy = Math.max(0, (S.entropy || 0) - (RELIEF[kind] || 0) * (kind === 'tap' ? erbeFx(S).tapRelief : 1) * n); return S.entropy; }
 export function tick(S, dt, cracks = 0) { S.entropy = Math.min(100, (S.entropy || 0) + entRate(S, cracks) * dt); return S.entropy; }
 export function offline(S, secs) {
   const add = entRate(S) * secs * ENT.offlineShare, cur = S.entropy || 0;
@@ -62,7 +64,7 @@ export const BOSS_EPOCHS = [2, 4, 6, 7];
 export const BOSS_DMG = { tap: 1, weak: 10 };
 export const BOSS_HEAL = 6;                    // verpasster Schwachpunkt heilt den Boss
 // Je höher die Entropie beim Kampfbeginn, desto zäher der Boss (bis +50 %)
-export const bossHP = (def, entropy) => Math.round(def.hp * (1 + Math.min(100, entropy || 0) / 200));
+export const bossHP = (def, entropy, S = null) => Math.round(def.hp * (1 + Math.min(100, entropy || 0) / 200) * (S ? erbeFx(S).bossHp : 1));
 export const needsBoss = (S, from) => entActive(S) && BOSSES[from] !== undefined && BOSS_EPOCHS.includes(from) && !(S.bossDone || []).includes(from);
 
 // Ausgang eines Kampfes (rein): neue Entropie, Verlust, Belohnung

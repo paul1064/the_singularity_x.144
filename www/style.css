@@ -326,3 +326,34 @@ body.cine-mode #voice { opacity: 0 !important; }
 #bossBar .hp i { display: block; height: 100%; width: 100%; background: var(--c); transition: width .12s; }
 #bossBar .bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; max-width: 340px; margin: 0 auto; }
 #bossBar .bar i { display: block; height: 100%; width: 100%; background: #fff; }
+
+/* V6.3: Das Vermächtnis */
+.tab.hidden { display: none; }
+.tab .pill.glow { background: #fff3b0; color: #1a1400; }
+.erbe-head { display: flex; justify-content: space-around; text-align: center; margin: 4px 0 12px; }
+.erbe-head small { display: block; font-size: 9.5px; letter-spacing: .16em; color: var(--muted); }
+.erbe-head b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.erbe-grid { display: flex; justify-content: space-around; align-items: flex-start; gap: 6px; }
+.ecol { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.eh { text-align: center; margin-bottom: 8px; }
+.eh b { display: block; font-size: 13px; color: var(--c); }
+.eh small { font-size: 10px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.eline { display: block; width: 2px; height: 14px; background: rgba(255,255,255,.18); }
+.eline.long { height: 22px; }
+.erbe-key { display: flex; flex-direction: column; align-items: center; margin-top: 2px; }
+.enode { width: 52px; height: 52px; border-radius: 50%; border: 2px solid rgba(255,255,255,.16); background: rgba(10,12,28,.8); color: rgba(255,255,255,.4); font: 700 15px 'Space Grotesk', system-ui, sans-serif; cursor: pointer; touch-action: manipulation; padding: 0; }
+.enode.near { border-color: rgba(255,255,255,.28); color: rgba(255,255,255,.6); }
+.enode.can { border-color: var(--c); color: #fff; box-shadow: 0 0 14px var(--c); animation: pulse 1.8s ease-in-out infinite; }
+.enode.own { background: var(--c); border-color: var(--c); color: #06070f; box-shadow: 0 0 12px var(--c); }
+.enode.sel { outline: 2px solid #fff; outline-offset: 3px; }
+.erbe-detail { margin: 14px 0 10px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--c); background: rgba(255,255,255,.04); }
+.erbe-detail b { color: var(--c); font-size: 15px; }
+.erbe-detail .cost { float: right; font-size: 12px; color: var(--muted); }
+.erbe-detail p { margin: 6px 0 10px; font-size: 13px; color: #dfe6ff; }
+.erbe-detail .btn { margin: 0; }
+.erbe-detail .btn[disabled] { opacity: .45; }
+.erbe-sum { margin: 8px 0 12px; }
+.erbe-sum small { display: block; font-size: 9.5px; letter-spacing: .16em; color: var(--muted); margin-bottom: 6px; }
+.erbe-sum span { display: inline-block; margin: 0 6px 6px 0; padding: 3px 9px; border-radius: 10px; font-size: 11.5px; background: rgba(255,243,176,.1); color: #fff3b0; }
+#panel .tabs .tab { white-space: nowrap; font-size: 12.5px; padding: 9px 2px; }
+#panel .tabs .tab .pill { margin-left: 3px; padding: 0 4px; }

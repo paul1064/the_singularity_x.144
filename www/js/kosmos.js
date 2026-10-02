@@ -45,10 +45,10 @@ export function pickCosmos(epoch, last, rnd = Math.random) {
 // Ergebnis einer Entscheidung. choice: abwehren | umlenken | nutzen | null (verstrichen)
 // pps = Produktion pro Sekunde, tapV = Tippwert, komplex = aktuelle Komplexität
 export const UMLENKEN_CHANCE = 0.6;
-export function cosmosOutcome(def, choice, pps, tapV, komplex, rnd = Math.random) {
+export function cosmosOutcome(def, choice, pps, tapV, komplex, rnd = Math.random, bonus = 0) {
   if (choice === 'abwehren') return { win: true, act: 'kraft', gain: pps * 60 + tapV * 15, text: def.abwehren, buff: null };
   if (choice === 'umlenken') {
-    if (rnd() < UMLENKEN_CHANCE) return { win: true, act: 'kraft', gain: pps * 240 + tapV * 40, text: def.umlenken, buff: { k: 'prod', m: 2, dur: 45, n: 'Kosmischer Rückenwind' } };
+    if (rnd() < UMLENKEN_CHANCE + bonus) return { win: true, act: 'kraft', gain: pps * 240 + tapV * 40, text: def.umlenken, buff: { k: 'prod', m: 2, dur: 45, n: 'Kosmischer Rückenwind' } };
     return { win: false, act: 'kraft', gain: -komplex * 0.06, text: def.umlenkenMiss, buff: null };
   }
   if (choice === 'nutzen') return { win: true, act: 'mutation', gain: pps * 90, text: def.nutzen, buff: { k: 'tap', m: 3, dur: 40, n: 'Kosmische Ladung' } };

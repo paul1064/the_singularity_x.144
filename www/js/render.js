@@ -261,7 +261,7 @@ export class World {
     m.nextWeak -= dt;
     if (m.nextWeak <= 0 && m.weaks.length < 2) {
       const a = Math.random() * TAU, R = 105 + Math.random() * 55;
-      m.weaks.push({ x: clamp(m.cx + Math.cos(a) * R, 46, w - 46), y: clamp(m.cy + Math.sin(a) * R, 170, h * 0.64), life: 2.3, max: 2.3 });
+      m.weaks.push({ x: clamp(m.cx + Math.cos(a) * R, 46, w - 46), y: clamp(m.cy + Math.sin(a) * R, 170, h * 0.64), life: 2.3 + (m.weakBonus || 0), max: 2.3 + (m.weakBonus || 0) });
       m.nextWeak = m.weakEvery * (0.8 + Math.random() * 0.4);
     }
     for (const wk of m.weaks) wk.life -= dt;

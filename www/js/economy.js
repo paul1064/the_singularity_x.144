@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS, LAWS, LETTERS, DOGMAS } from './data.js';
 import { entMult, bossBonus } from './entropie.js';
+import { erbeFx } from './erbe.js';
 
 export const TUNING = {
   costBase: 12,
@@ -59,6 +60,13 @@ export function newState() {
     pendingMyth: null,      // V4: Epoche, deren Mythos noch aussteht
     pantheon: [],           // V4: [{u, name}] Götter früherer Universen (bleibt)
     endings: [],            // V4: freigeschaltete Enden (bleibt)
+    erbeVP: 0,              // V6.3: freie Erbe-Punkte (bleibt)
+    erbeTotal: 0,           // V6.3: insgesamt verdiente Erbe-Punkte (bleibt)
+    erbeNodes: [],          // V6.3: erworbene Knoten des Vermächtnis-Baums (bleibt)
+    erbeRetro: false,       // V6.3: rückwirkender Bonus erhalten (bleibt)
+    pendingErbe: null,      // V6.3: Ertrag, der noch angezeigt werden muss
+    runBossWins: 0,         // V6.3: Boss-Siege dieses Durchlaufs
+    runNewEnding: false,    // V6.3: in diesem Durchlauf ein neues Ende gefunden
     entropy: 0,             // V6.2: Entropie in % (0–100)
     bossDone: [],           // V6.2: in diesem Durchlauf besiegte Bosse (Epochen)
     bossWins: 0,            // V6.2: besiegte Bosse insgesamt (bleibt)
@@ -144,6 +152,7 @@ export function leapCost(state, e) {
   if (e === 7 && state.choices.button === 'b') c *= 0.7;
   if (hasTrait(state, 'erbe')) c *= 0.8;
   c *= auraMult(state, 'leap') * (lawFx(state).leap ?? 1);
+  c *= erbeFx(state).leap;
   c *= 1 + TUNING.entropy * state.runsDone;   // Entropie: spätere Universen brauchen mehr
   return c;
 }
@@ -188,7 +197,7 @@ export function genProd(state, i) {
 export function prodPerSec(state) {
   let s = 0;
   for (let i = 0; i < GENERATORS.length; i++) if (state.owned[i]) s += genProd(state, i);
-  return s * buffMult(state, 'prod') * entMult(state) * bossBonus(state);
+  return s * buffMult(state, 'prod') * entMult(state) * bossBonus(state) * erbeFx(state).prod;
 }
 
 export function tapMult(state) {
@@ -197,7 +206,7 @@ export function tapMult(state) {
   if (state.intent === 'wille') m *= 2;
   if (hasTrait(state, 'schwarm')) m *= 2;
   if (hasTrait(state, 'traeumer')) m *= 0.8;
-  return m * buffMult(state, 'tap') * auraMult(state, 'tap') * (lawFx(state).tap ?? 1);
+  return m * buffMult(state, 'tap') * auraMult(state, 'tap') * (lawFx(state).tap ?? 1) * erbeFx(state).tap;
 }
 
 // Resonanz: schnelles Tippen (vor allem mit mehreren Fingern) lädt einen Tipp-Multiplikator auf
@@ -210,10 +219,10 @@ export function tapValue(state, pps = prodPerSec(state), res = 0) {
 }
 
 // Mutationen: Häufigkeit, Lebensdauer, Stärke
-export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1) / (lawFx(state).mutFreq ?? 1);
+export const mutationInterval = (state) => (40 + Math.random() * 40) / (hasTrait(state, 'mutant') ? 2 : 1) / (lawFx(state).mutFreq ?? 1) / erbeFx(state).mut;
 export const mutationLife = (state) => 9 * (hasTrait(state, 'mutant') ? 1.5 : 1);
 export const mutationPower = (state, m) => 1 + (m - 1) * (hasTrait(state, 'glueck') ? 1.5 : 1) * auraMult(state, 'mut');
-export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1) * auraMult(state, 'offline') * (lawFx(state).offline ?? 1);
+export const offlineEfficiency = (state) => 0.6 * (hasTrait(state, 'traeumer') ? 1.6 : 1) * auraMult(state, 'offline') * (lawFx(state).offline ?? 1) * erbeFx(state).offline;
 
 export function earn(state, amount) {
   state.complexity += amount;

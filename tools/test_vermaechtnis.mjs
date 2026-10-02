@@ -1,0 +1,43 @@
+import * as R from '../www/js/erbe.js';
+import * as E from '../www/js/economy.js';
+import * as N from '../www/js/entropie.js';
+let fails = 0; const ok = (n, c, i = '') => { console.log((c ? 'OK   ' : 'FAIL ') + n + (i ? `  [${i}]` : '')); if (!c) fails++; };
+const S = (o = {}) => Object.assign(E.newState(), { runsDone: 6, epoch: 3, ...o });
+ok('13 Knoten: 3 Äste × 4 Stufen + Schlussstein', R.NODES.length === 13 && R.NODES.filter((n) => n.b === 'schoepfer').length === 4);
+ok('Gesamtkosten 109', R.TOTAL_COST === 109, String(R.TOTAL_COST));
+const s = S({ erbeVP: 10 });
+ok('Stufe 2 braucht Stufe 1', R.why(s, 's2') === 'Braucht „Erster Funke"');
+ok('Kauf von Stufe 1 klappt und kostet 3', R.buy(s, 's1') && s.erbeVP === 7 && R.owned(s, 's1'));
+ok('doppelt kaufen verboten', R.why(s, 's1') === 'Schon erworben' && !R.buy(s, 's1'));
+ok('zu wenig Erbe wird gemeldet', R.why(S({ erbeVP: 4 }), 's1') === null && R.why(S({ erbeVP: 1 }), 's1') === 'Es fehlen 2 Erbe');
+ok('Schlussstein braucht Stufe 3 aller Äste', R.why(S({ erbeVP: 99, erbeNodes: ['s3', 'b3'] }), 'k') === 'Braucht Stufe 3 aller drei Äste' && R.why(S({ erbeVP: 99, erbeNodes: ['s3', 'b3', 'z3'] }), 'k') === null);
+// Wirkung
+const own = (() => { const o = new Array(24).fill(0); o[0] = 50; return o; })();
+const base = S({ owned: own }), p0 = E.prodPerSec(base);
+const pr = S({ owned: own, erbeNodes: ['s1', 's2', 's3', 's4'] });
+ok('Schöpfer: Produktion ×1,375 (1,1 × 1,25)', Math.abs(E.prodPerSec(pr) / p0 - 1.375) < 1e-9, (E.prodPerSec(pr) / p0).toFixed(4));
+ok('Schöpfer: Sprungkosten ×0,92', Math.abs(E.leapCost(pr, 2) / E.leapCost(base, 2) - 0.92) < 1e-9);
+ok('Schöpfer: Offline ×1,3', Math.abs(E.offlineEfficiency(pr) / E.offlineEfficiency(base) - 1.3) < 1e-9);
+const zs = S({ erbeNodes: ['z1', 'z2', 'z3', 'z4'] });
+ok('Zerstörer: Tippen ×1,8 (1,2 × 1,5)', Math.abs(E.tapMult(zs) / E.tapMult(base) - 1.8) < 1e-9);
+ok('Zerstörer: Mutationen häufiger', (() => { const r = []; for (let i = 0; i < 200; i++) r.push(E.mutationInterval(zs) / E.mutationInterval(base) * 1); return true; })() && (() => { const a = Math.random; Math.random = () => 0.5; const x = E.mutationInterval(zs) / E.mutationInterval(base); Math.random = a; return Math.abs(x - 0.8) < 1e-9; })());
+const bw = S({ erbeNodes: ['b1', 'b2', 'b3', 'b4'] });
+ok('Bewahrer: Entropie langsamer (×0,85)', Math.abs(N.entRate(bw) / N.entRate(base) - 0.85) < 1e-9);
+ok('Bewahrer: Tippen drängt 50 % stärker zurück', (() => { const a = S({ entropy: 50 }), b = S({ entropy: 50, erbeNodes: ['b1', 'b2'] }); N.relief(a, 'tap', 100); N.relief(b, 'tap', 100); return Math.abs((50 - b.entropy) / (50 - a.entropy) - 1.5) < 1e-9; })());
+ok('Bewahrer: Strafe halbiert (bei 100 % −20 % statt −40 %)', Math.abs(N.entMult(S({ entropy: 100, erbeNodes: ['b1', 'b2', 'b3'] })) - 0.8) < 1e-9);
+ok('Bewahrer: Boss −20 % Leben', N.bossHP(N.BOSSES[2], 0, bw) === 72 && N.bossHP(N.BOSSES[2], 0, base) === 90);
+ok('Bewahrer: Schwachpunkt +0,6 s', Math.abs(R.erbeFx(bw).weakLife - 0.6) < 1e-9 && Math.abs(R.erbeFx(zs).umlenken - 0.15) < 1e-9);
+const key = S({ erbeNodes: R.NODES.map((n) => n.id) });
+ok('alle Knoten zusammen: Produktion ×(1,375 × 1,5)', Math.abs(R.erbeFx(key).prod - 1.1 * 1.25 * 1.5) < 1e-9);
+// Neu verteilen
+const rs = S({ erbeVP: 1, erbeNodes: ['s1', 's2'] }); const back = R.respec(rs);
+ok('Neu verteilen gibt alles zurück (kostenlos)', back === 8 && rs.erbeVP === 9 && rs.erbeNodes.length === 0 && R.erbeFx(rs).prod === 1);
+// Ertrag
+const g0 = R.gain(S()), g1 = R.gain(S({ avatars: ['a', 'b', 'c', 'd', 'e', 'f'], myths: [1, 2, 3, 4], runNewEnding: true, runBossWins: 3 }));
+ok('Ertrag: Basis 2', g0.total === 2);
+ok('Ertrag: Avatare (max 4), Mythen (max 3), neues Ende +3, Boss je +2', g1.total === 2 + 4 + 3 + 3 + 6, String(g1.total));
+ok('Ertrag nennt jede Quelle', g1.lines.length === 5);
+const old = S({ runsDone: 9 }), rr = R.retro(old);
+ok('rückwirkend: 6 je Universum (max 60), nur einmal', rr.total === 54 && old.erbeVP === 54 && R.retro(old) === null && R.retro(S({ runsDone: 99 })).total === 60 && R.retro(S({ runsDone: 0 })) === null);
+ok('Durchschnittliches Universum (~10 Erbe) → Baum in etwa 11 Universen voll', Math.round(R.TOTAL_COST / 10) === 11);
+console.log(fails ? `FEHLGESCHLAGEN: ${fails}` : 'Alle Tests bestanden'); process.exit(fails ? 1 : 0);

@@ -11,6 +11,7 @@ import { AGES } from './akt2data.js';
 import * as SI from './sicherung.js';
 import * as KO from './kosmos.js';
 import * as EN from './entropie.js';
+import * as ER from './erbe.js';
 
 const SAVE_KEY = 'singularity-x144';
 const SNAP_KEY = 'singularity-x144-snap';
@@ -519,7 +520,7 @@ function collectMutation(forced, fromPower) {
   let text = m.text;
   if (m.kind === 'gain') {
     const secs = E.mutationPower(S, m.secs);
-    const gain = E.prodPerSec(S) * secs + E.tapValue(S, undefined, 0) * 20;
+    const gain = (E.prodPerSec(S) * secs + E.tapValue(S, undefined, 0) * 20) * ER.erbeFx(S).gain;
     E.earn(S, gain); text = `+${fmt(gain)} ✦`;
   } else {
     const mult = E.mutationPower(S, m.mult);
@@ -832,7 +833,7 @@ function endMoment(win) {
   const m = world.moment; world.moment = null;
   document.body.classList.remove('moment'); $('momentBar').classList.add('hidden');
   S.moments.push(m.e); S.pendingMoment = null; if (win) { S.acts.moment++; EN.relief(S, 'moment'); }
-  const r = m.reward, gain = E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0);
+  const r = m.reward, gain = (E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0)) * ER.erbeFx(S).gain;
   E.earn(S, gain);
   if (win) {
     S.buffs.push({ id: 'moment' + m.e, n: m.title, k: r.buff.k, m: r.buff.m, t: r.buff.dur });
@@ -872,7 +873,8 @@ function endCosmic(choice) {
   const c = cosmic; if (!c) return; cosmic = null;
   c.riser && c.riser.stop();
   $('cosmicBar').classList.add('hidden'); document.body.classList.remove('moment');
-  const o = KO.cosmosOutcome(c.def, choice, E.prodPerSec(S), E.tapValue(S, undefined, 0), S.complexity);
+  const o = KO.cosmosOutcome(c.def, choice, E.prodPerSec(S), E.tapValue(S, undefined, 0), S.complexity, Math.random, ER.erbeFx(S).umlenken);
+  if (o.gain > 0) o.gain *= ER.erbeFx(S).gain;
   if (o.act) S.acts[o.act]++;
   if (o.win) EN.relief(S, choice === 'nutzen' ? 'cosmosNutzen' : 'cosmos');
   if (o.gain >= 0) E.earn(S, o.gain); else S.complexity = Math.max(0, S.complexity + o.gain);
@@ -891,6 +893,71 @@ function endCosmic(choice) {
 }
 for (const k of ['abwehren', 'umlenken', 'nutzen']) onTap($('cos-' + k), () => cosmic && endCosmic(k));
 
+// ── V6.3: Das Vermächtnis (Prestige-Baum) ─────────────────────
+let erbeSel = null;
+const ERBE_MODAL = !location.search.includes('dev') || location.search.includes('erbe');   // Tests nicht stören
+const fmtX = (x) => String(+x.toFixed(2)).replace('.', ',');
+function refreshErbeTab() {
+  const b = document.querySelector('#panel .tab[data-tab="erbe"]');
+  const show = S.runsDone > 0 || (S.erbeTotal || 0) > 0;
+  b.classList.toggle('hidden', !show);
+  b.querySelector('.pill').textContent = S.erbeVP || 0;
+  b.querySelector('.pill').classList.toggle('glow', (S.erbeVP || 0) >= 3);
+}
+function erbeSummary() {
+  const f = ER.erbeFx(S), L = [];
+  if (f.prod !== 1) L.push(`Produktion ×${fmtX(f.prod)}`);
+  if (f.tap !== 1) L.push(`Tippen ×${fmtX(f.tap)}`);
+  if (f.leap !== 1) L.push(`Sprungkosten ×${fmtX(f.leap)}`);
+  if (f.offline !== 1) L.push(`Offline ×${fmtX(f.offline)}`);
+  if (f.mut !== 1) L.push(`Mutationen ×${fmtX(f.mut)} häufiger`);
+  if (f.gain !== 1) L.push(`Erträge ×${fmtX(f.gain)}`);
+  if (f.entRate !== 1) L.push(`Entropie ×${fmtX(f.entRate)}`);
+  if (f.tapRelief !== 1) L.push(`Ordnung durch Tippen ×${fmtX(f.tapRelief)}`);
+  if (f.penalty !== 1) L.push(`Entropie-Strafe ×${fmtX(f.penalty)}`);
+  if (f.bossHp !== 1) L.push(`Boss-Leben ×${fmtX(f.bossHp)}`);
+  return L;
+}
+function renderErbe() {
+  const box = $('tab-erbe'); if (!box) return;
+  const node = (id) => {
+    const n = ER.NODE[id], own = ER.owned(S, id), can = !ER.why(S, id), br = ER.BRANCHES[n.b] || { color: '#fff3b0' };
+    return `<button class="enode ${own ? 'own' : can ? 'can' : ER.why(S, id).startsWith('Es fehlen') ? 'near' : 'lock'}${erbeSel === id ? ' sel' : ''}" data-n="${id}" style="--c:${br.color}" aria-label="${n.name}"><span>${id === 'k' ? '144' : n.t}</span></button>`;
+  };
+  const col = (b) => `<div class="ecol" style="--c:${ER.BRANCHES[b].color}"><div class="eh"><b>${ER.BRANCHES[b].name}</b><small>${ER.BRANCHES[b].sub}</small></div>${ER.NODES.filter((n) => n.b === b).map((n) => node(n.id)).join('<i class="eline"></i>')}</div>`;
+  const sel = erbeSel && ER.NODE[erbeSel] ? ER.NODE[erbeSel] : null;
+  const reason = sel ? ER.why(S, sel.id) : null;
+  const sum = erbeSummary();
+  box.innerHTML = `<div class="erbe-head"><div><small>ERBE-PUNKTE</small><b>${S.erbeVP || 0}</b></div><div><small>INSGESAMT</small><b>${S.erbeTotal || 0}</b></div><div><small>VERTEILT</small><b>${ER.spent(S)} / ${ER.TOTAL_COST}</b></div></div>
+    <div class="erbe-grid">${col('schoepfer')}${col('bewahrer')}${col('zerstoerer')}</div>
+    <div class="erbe-key"><i class="eline long"></i>${node('k')}</div>
+    <div class="erbe-detail" style="--c:${sel ? (ER.BRANCHES[sel.b] || { color: '#fff3b0' }).color : '#fff3b0'}">${sel
+      ? `<b>${sel.name}</b><span class="cost">${ER.owned(S, sel.id) ? 'Erworben' : sel.cost + ' Erbe'}</span><p>${sel.text}</p>${ER.owned(S, sel.id) ? '' : `<button class="btn" id="eBuy" ${reason ? 'disabled' : ''}>${reason || 'Erwerben'}</button>`}`
+      : '<p style="margin:0;color:var(--muted)">Tippe einen Knoten an. Jedes vollendete Universum gibt Erbe: Avatare, Mythen, neue Enden und besiegte Bosse zählen.</p>'}</div>
+    ${sum.length ? `<div class="erbe-sum"><small>DEIN VERMÄCHTNIS WIRKT</small>${sum.map((x) => `<span>${x}</span>`).join('')}</div>` : ''}
+    ${ER.spent(S) ? '<button class="btn ghost" id="eReset">Alles neu verteilen (kostenlos)</button>' : ''}`;
+  for (const b of box.querySelectorAll('.enode')) onTap(b, () => { erbeSel = b.dataset.n; renderErbe(); });
+  if ($('eBuy')) onTap($('eBuy'), () => {
+    if (!ER.buy(S, erbeSel)) return;
+    music.fragment(); vibrate([20, 30, 40]); world.doFlash((ER.BRANCHES[ER.NODE[erbeSel].b] || { color: '#fff3b0' }).color, 0.3);
+    addTimeline(`Vermächtnis: <b>${ER.NODE[erbeSel].name}</b><small>${ER.NODE[erbeSel].text}</small>`, 'choice', (ER.BRANCHES[ER.NODE[erbeSel].b] || { color: '#fff3b0' }).color);
+    refreshErbeTab(); updateHud(); save(); renderErbe();
+  });
+  if ($('eReset')) onTap($('eReset'), () => { ER.respec(S); refreshErbeTab(); updateHud(); save(); renderErbe(); });
+}
+function showErbeGain() {
+  const g = S.pendingErbe; if (!g) return;
+  S.pendingErbe = null; save();
+  music.boom(); world.doFlash('#fff3b0', 0.4); vibrate([30, 40, 80]);
+  openModal(`<div class="kicker" style="color:#fff3b0">DAS VERMÄCHTNIS</div><h2>+${g.total} Erbe</h2>
+    ${g.lines.map((l) => `<div class="row"><span>${l.t}</span><b style="color:#fff3b0">+${l.v}</b></div>`).join('')}
+    <p style="font-size:12.5px;color:var(--muted);margin:10px 0">Erbe bleibt über alle Universen. Verteile es im Reiter „Erbe" auf Schöpfer, Bewahrer und Zerstörer. Du kannst es jederzeit kostenlos neu verteilen.</p>
+    <button class="btn" id="ebGo">Zum Vermächtnis</button><button class="btn ghost" id="ebNo">Später</button>`);
+  $('ebNo').onclick = closeModal;
+  $('ebGo').onclick = () => { closeModal(); document.querySelector('#panel .tab[data-tab="erbe"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 5, clientY: 5 })); document.querySelector('#panel .tab[data-tab="erbe"]').dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, clientX: 5, clientY: 5 })); };
+  refreshErbeTab();
+}
+
 // ── V6.2: Die Entropie ────────────────────────────────────────
 function updateEntropy(dt) {
   if (!S.entIntro && !modalOpen()) { showEntropyIntro(); return; }
@@ -906,7 +973,7 @@ function updateEntropy(dt) {
   } else if (st < entStage) entStage = st;
   if (S.entropy >= ENT_CRACK) {
     nextCrack -= dt;
-    if (nextCrack <= 0 && world.cracks.length < 3 && !cosmic) { world.spawnCrack(); vibrate([20, 30, 20]); nextCrack = st >= 3 ? 8 + Math.random() * 5 : 14 + Math.random() * 8; }
+    if (nextCrack <= 0 && world.cracks.length < 3 && !cosmic) { world.spawnCrack(); vibrate([20, 30, 20]); nextCrack = (st >= 3 ? 8 + Math.random() * 5 : 14 + Math.random() * 8) * ER.erbeFx(S).crack; }
   } else if (world.cracks.length) world.cracks = [];
   if (S.entropy >= 100 && !modalOpen() && !cosmic) {          // Kollaps: sie bricht durch
     world.cracks = [];
@@ -949,7 +1016,7 @@ function runBoss(key) {
   return new Promise((res) => {
     const def = EN.BOSSES[key]; if (!def) { res(); return; }
     bossRes = res;
-    world.startBoss({ ...def, key, hp: EN.bossHP(def, S.entropy) });
+    world.startBoss({ ...def, key, hp: EN.bossHP(def, S.entropy, S), weakBonus: ER.erbeFx(S).weakLife });
     document.body.classList.add('moment');
     const bar = $('bossBar'); bar.classList.remove('hidden'); bar.style.setProperty('--c', def.color);
     bar.querySelector('b').textContent = def.name; bar.querySelector('p').textContent = def.intro;
@@ -972,7 +1039,7 @@ function endBoss(win) {
   bossSnd && bossSnd.stop(); bossSnd = null;
   $('bossBar').classList.add('hidden'); document.body.classList.remove('moment');
   const r = EN.bossResult(S, m.key, win, E.prodPerSec(S));
-  S.entropy = r.entropy; entStage = EN.entStage(S.entropy); S.bossWins += r.wins; S.acts.kraft += r.acts;
+  S.entropy = r.entropy; entStage = EN.entStage(S.entropy); S.bossWins += r.wins; S.runBossWins += r.wins; S.acts.kraft += r.acts;
   if (r.gain) E.earn(S, r.gain);
   if (r.loss) S.complexity = Math.max(0, S.complexity * (1 - r.loss));
   if (r.buff) S.buffs.push({ id: 'boss', n: r.buff.n, k: r.buff.k, m: r.buff.m, t: r.buff.dur });
@@ -1068,7 +1135,8 @@ function showDraft(after) {
 document.querySelectorAll('#panel .tab').forEach((b) => onTap(b, () => {
   tab = b.dataset.tab;
   document.querySelectorAll('#panel .tab').forEach((x) => x.classList.toggle('active', x === b));
-  ['evo', 'time', 'frag'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['evo', 'time', 'frag', 'erbe'].forEach((t) => $('tab-' + t).classList.toggle('hidden', t !== tab));
+  if (tab === 'erbe') renderErbe();
   if (tab === 'time') renderTimeline();
   if (tab === 'frag') renderFragments();
 }));
@@ -1107,7 +1175,7 @@ function loop(now) {
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateEntropyHud(); updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; if (ERBE_MODAL && S.pendingErbe && !modalOpen() && !cinematic && !world.moment && !cosmic) showErbeGain(); updateEntropyHud(); updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen() && !world.moment) {
@@ -1204,7 +1272,7 @@ async function finale() {
   S.finished = true;
   S.ending = E.endingOf(S);
   const freshEnding = !S.endings.includes(S.ending);
-  if (freshEnding) S.endings.push(S.ending);
+  if (freshEnding) { S.endings.push(S.ending); S.runNewEnding = true; }
   save();
   renderLeap();
   world.zMax = 7; world.zTarget = 7;
@@ -1314,7 +1382,9 @@ async function bigBang(k, intent) {
 
   // Neues Universum
   addTimeline('<b>Der Gedanke</b><small>Das Kollektiv dachte einen neuen Urknall.</small>', 'leap', '#fff3b0');
+  const eg = S.akt === 2 ? null : ER.gain(S);     // V6.3: Erbe für das vollendete Universum
   const keep = {
+    erbeVP: (S.erbeVP || 0) + (eg ? eg.total : 0), erbeTotal: (S.erbeTotal || 0) + (eg ? eg.total : 0), erbeNodes: S.erbeNodes, erbeRetro: true,
     universe: S.universe + 1, runsDone: S.runsDone + 1, lifetime: S.lifetime,
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
@@ -1325,6 +1395,8 @@ async function bigBang(k, intent) {
   };
   S = Object.assign(E.newState(), keep);
   entStage = 0; world.cracks = [];
+  if (eg) S.pendingErbe = eg;
+  refreshErbeTab();
   save();
   ov.classList.remove('hidden');
   ov.innerHTML = `<div class="cine">Diesmal war jemand da.</div><div class="title">UNIVERSUM ${S.universe}</div>`;
@@ -1379,6 +1451,8 @@ const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, mo
 (async function boot() {
   requestAnimationFrame(loop);
   if (!S.introSeen) { await firstIntro(); return; }
+  const retro = ER.retro(S); if (retro) { S.pendingErbe = retro; save(); }   // V6.3: einmaliger Bonus für bereits gespielte Universen
+  refreshErbeTab();
   // Offline-Ertrag
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
@@ -1414,6 +1488,10 @@ if (location.search.includes('dev')) {
     queue: checkQueue,
     A2,
     film: playFilm,
+    ER,
+    renderErbe,
+    showErbeGain,
+    refreshErbeTab,
     EN,
     runBoss,
     get world() { return world; },
