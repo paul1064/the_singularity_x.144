@@ -9,6 +9,7 @@ import { fmt, fmtRate } from './format.js';
 import { createAkt2 } from './akt2.js';
 import { AGES } from './akt2data.js';
 import * as SI from './sicherung.js';
+import * as KO from './kosmos.js';
 
 const SAVE_KEY = 'singularity-x144';
 const SNAP_KEY = 'singularity-x144-snap';
@@ -28,6 +29,8 @@ let nextVoice = 25;
 let acc = 0;
 let res = 0;                // V2: Resonanz 0–1 (nicht gespeichert)
 let lastTapAt = 0;
+const COSMOS_ON = !location.search.includes('dev') || location.search.includes('cosmos');   // Tests nicht stören
+let nextCosmic = KO.cosmosWait(true), lastCosmic = null, cosmic = null;   // V6.1: kosmische Ereignisse
 let nextMut = 18;           // V2: Sekunden bis zur nächsten Mutation (die erste kommt früh)
 
 // ── Speichern / Laden ─────────────────────────────────────────
@@ -258,7 +261,7 @@ async function doLeap() {
   vibrate(40);
   await wait(1500);
   r && r.stop();
-  music.boom(); world.doFlash(EPOCHS[S.epoch].color, 0.9); world.shake = 0.6;
+  music.boom(); world.doFlash(EPOCHS[S.epoch].color, 0.9); world.shake = KO.leapShake(S.epoch); vibrate(KO.leapHaptik(S.epoch));
   world.setEpoch(S.epoch, true);
   music.setLevel(S.epoch + 1);
   refreshStatic();
@@ -484,7 +487,7 @@ function tap(x, y) {
   world.floater(x + (Math.random() - 0.5) * 40, y - 14 - Math.random() * 16, '+' + fmt(v), '#ffffff');
   const now = performance.now();
   if (now - lastSfx > 45) { music.tap(); lastSfx = now; }
-  if (now - lastTap > 60) vibrate(6);
+  if (now - lastTap > 60) vibrate(KO.tapHaptik(S.epoch));
   lastTap = now;
 }
 
@@ -831,6 +834,74 @@ function endMoment(win) {
   updateHud(); updateBuffs(); save();
 }
 
+// ── V6.1: Kosmische Ereignisse (Entscheidung in Echtzeit) ─────
+function startCosmic(def) {
+  cosmic = { def, t: 0, riser: music.riser(KO.COSMOS_DUR - 1), beat: 0 };
+  lastCosmic = def.id;
+  const box = $('cosmicBar'); box.classList.remove('hidden');
+  box.style.setProperty('--c', def.color);
+  box.querySelector('b').textContent = def.title; box.querySelector('p').textContent = def.text;
+  document.body.classList.add('moment');
+  music.boom(); vibrate([20, 40, 20]); world.doFlash(def.color, 0.35);
+  say([def.title + '.']);
+}
+function updateCosmic(dt) {
+  const c = cosmic; c.t += dt;
+  const f = c.t / KO.COSMOS_DUR;
+  $('cosmicBar').querySelector('.bar i').style.width = `${Math.max(0, 1 - f) * 100}%`;
+  // Das Ereignis spürbar machen: Wackeln und Herzschlag werden mit der Zeit stärker
+  world.shake = Math.max(world.shake, 0.06 + f * 0.4);
+  if (c.t > c.beat) { c.beat = c.t + 1.1 - f * 0.7; vibrate(10 + Math.round(f * 30)); }
+  if (c.t >= KO.COSMOS_DUR) endCosmic(null);
+}
+function endCosmic(choice) {
+  const c = cosmic; if (!c) return; cosmic = null;
+  c.riser && c.riser.stop();
+  $('cosmicBar').classList.add('hidden'); document.body.classList.remove('moment');
+  const o = KO.cosmosOutcome(c.def, choice, E.prodPerSec(S), E.tapValue(S, undefined, 0), S.complexity);
+  if (o.act) S.acts[o.act]++;
+  if (o.gain >= 0) E.earn(S, o.gain); else S.complexity = Math.max(0, S.complexity + o.gain);
+  if (o.buff) S.buffs.push({ id: 'kosmos', n: o.buff.n, k: o.buff.k, m: o.buff.m, t: o.buff.dur });
+  const col = o.win ? c.def.color : (choice ? '#ff6b81' : '#8a93b8');
+  if (choice) {
+    music.boom(o.win); vibrate(o.win ? [40, 40, 100] : [100, 40, 200]);
+    world.doFlash(o.win ? col : '#ff6b81', o.win ? 0.7 : 0.9); world.shake = o.win ? 0.8 : 1.4;
+    if (o.win) world.burst(world.cx, world.cy, col, 70, 2);
+    world.floater(world.cx, world.cy - 40, `${o.gain >= 0 ? '+' : '−'}${fmt(Math.abs(o.gain))} ✦`, col);
+  }
+  addTimeline(`Kosmos: <b>${c.def.title}</b><small>${o.text}</small>`, 'choice', col);
+  say([o.text]);
+  nextCosmic = KO.cosmosWait(false);
+  updateHud(); updateBuffs(); save();
+}
+for (const k of ['abwehren', 'umlenken', 'nutzen']) onTap($('cos-' + k), () => cosmic && endCosmic(k));
+
+// ── V6.1: Rückblick-Film vor dem Urknall ──────────────────────
+async function playFilm() {
+  const scenes = KO.buildFilm(S), ov = $('overlay');
+  ov.classList.remove('hidden');
+  const hadCine = document.body.classList.contains('cine-mode'); document.body.classList.add('cine-mode');
+  ov.innerHTML = `<div class="film"><div class="film-sub"></div><div class="film-t"></div><div class="film-l"></div></div>
+    <div class="film-dots">${scenes.map(() => '<i></i>').join('')}</div><div class="hint">TIPPEN ZUM ÜBERSPRINGEN</div>`;
+  let skip = false; ov.onclick = () => { skip = true; };
+  const q = (c) => ov.querySelector(c), dots = ov.querySelectorAll('.film-dots i');
+  const sleep = async (ms) => { for (let t = 0; t < ms && !skip; t += 80) await wait(80); };
+  for (let i = 0; i < scenes.length && !skip; i++) {
+    const sc = scenes[i], box = q('.film');
+    box.classList.remove('on');
+    await wait(120);
+    ov.style.background = `radial-gradient(circle at 50% 45%, ${sc.color}44, transparent 75%), rgba(2,3,10,.93)`;
+    q('.film-sub').textContent = sc.sub || ''; q('.film-t').textContent = sc.title; q('.film-t').style.color = sc.color;
+    q('.film-l').innerHTML = sc.lines.map((l) => `<div>${l}</div>`).join('');
+    dots.forEach((d, k) => d.classList.toggle('on', k <= i));
+    box.classList.add('on');
+    if (sc.kind === 'ende') { music.boom(true); vibrate([40, 40, 120]); } else { music.fragment(); vibrate([10, 30, 10 + (sc.e || 0) * 4]); }
+    await sleep(sc.kind === 'epoche' ? KO.FILM_MS : 2800);
+  }
+  ov.onclick = null; ov.style.background = ''; ov.innerHTML = '';
+  if (!hadCine) document.body.classList.remove('cine-mode');
+}
+
 // ── V3: Relikte (die Avatare früherer Universen) ──────────────
 // Jeder Avatar, den du je gewählt hast, liegt im nächsten Universum als Relikt auf seiner Zoom-Ebene.
 function syncRelics() {
@@ -913,7 +984,12 @@ function loop(now) {
     tickAvatarCd(dt);
     if (S.paradox > 0) S.paradox = Math.max(0, S.paradox - E.TUNING.paradoxDecay * dt);
     if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
-    if (!cinematic && !modalOpen() && !world.moment) {
+    if (cosmic) updateCosmic(dt);
+    else if (COSMOS_ON && !cinematic && !modalOpen() && !world.moment && S.epoch >= 1 && !S.pendingEvent && !S.pendingTrait && !S.pendingAvatar) {
+      nextCosmic -= dt;
+      if (nextCosmic <= 0) { const d = KO.pickCosmos(S.epoch, lastCosmic); if (d) startCosmic(d); else nextCosmic = 60; }
+    }
+    if (!cinematic && !modalOpen() && !world.moment && !cosmic) {
       nextMut -= dt;
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
@@ -1121,6 +1197,8 @@ async function bigBang(k, intent) {
     return;
   }
 
+  await playFilm();        // V6.1: das alte Universum läuft als Zeitraffer ab
+
   // Neues Universum
   addTimeline('<b>Der Gedanke</b><small>Das Kollektiv dachte einen neuen Urknall.</small>', 'leap', '#fff3b0');
   const keep = {
@@ -1220,6 +1298,10 @@ if (location.search.includes('dev')) {
     bigBang(k, i) { return bigBang(k, i); },
     queue: checkQueue,
     A2,
+    film: playFilm,
+    startCosmic(id) { startCosmic(KO.COSMOS.find((c) => c.id === id) || KO.COSMOS[0]); },
+    endCosmic,
+    get cosmic() { return cosmic; },
     music,
     SI,
     takeSnapshot,

@@ -285,3 +285,26 @@ body.akt2 .amount .sym { color: #ffd166; }
 .a2card .rd p { font-size: 12.5px; }
 .a2card.locked { opacity: .5; text-align: center; font-size: 12.5px; color: var(--muted); }
 .a2card small { color: var(--muted); font-size: 11.5px; display: block; margin-top: 4px; line-height: 1.4; }
+
+/* V6.1: Kosmische Ereignisse & Rückblick-Film */
+#cosmicBar { position: fixed; left: 14px; right: 14px; bottom: calc(var(--safe-b) + 24px); z-index: 7; text-align: center; --c: #fff; }
+#cosmicBar.hidden { display: none; }
+#cosmicBar b { display: block; font-family: 'Cormorant', Georgia, serif; font-style: italic; font-size: 26px; font-weight: 600; color: var(--c); text-shadow: 0 0 18px rgba(0,0,0,.85), 0 0 24px var(--c); }
+#cosmicBar p { margin: 4px auto 10px; max-width: 330px; font-size: 13px; color: #dfe6ff; text-shadow: 0 0 10px rgba(0,0,0,.9); }
+.cos-btns { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+.cos-btns button { flex: 1; max-width: 118px; padding: 10px 6px; border-radius: 14px; border: 1px solid var(--c); background: rgba(8,10,24,.78); color: #fff; font: inherit; cursor: pointer; touch-action: manipulation; }
+.cos-btns button strong { display: block; font-size: 14px; color: var(--c); }
+.cos-btns button small { display: block; font-size: 10.5px; color: #aeb7d8; margin-top: 2px; }
+.cos-btns button:active { background: var(--c); }
+.cos-btns button:active strong, .cos-btns button:active small { color: #05060f; }
+#cosmicBar .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; max-width: 340px; margin: 0 auto; }
+#cosmicBar .bar i { display: block; height: 100%; width: 100%; background: var(--c); }
+.film { opacity: 0; transition: opacity .6s; max-width: 340px; }
+.film.on { opacity: 1; }
+.film-sub { font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: #aeb7d8; min-height: 14px; }
+.film-t { font-family: 'Cormorant', Georgia, serif; font-style: italic; font-size: 40px; line-height: 1.1; margin: 6px 0 14px; text-shadow: 0 0 28px currentColor; }
+.film-l div { font-size: 15px; color: #e8ecff; margin: 5px 0; }
+.film-dots { position: absolute; left: 0; right: 0; bottom: calc(var(--safe-b) + 84px); display: flex; gap: 7px; justify-content: center; }
+.film-dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.2); transition: background .4s, transform .4s; }
+.film-dots i.on { background: #fff; transform: scale(1.25); }
+body.cine-mode #voice { opacity: 0 !important; }
