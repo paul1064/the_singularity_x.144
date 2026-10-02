@@ -86,6 +86,7 @@ try:
         pg.wait_for_timeout(4200)
         check('danach geht der Evolutionssprung weiter (Epoche 3)', S('epoch') == 3 and 2 in ev("window.__dev.S.bossDone"), f"epoche={S('epoch')}")
         check('Belohnung: Entropie 8 % (−15 % Sprung ⇒ 0–8), Triumph-Buff', S('entropy') < 9 and ev("window.__dev.S.buffs.some(b=>b.id==='boss')"), f"{S('entropy'):.1f}")
+        check('Boss-Sieg ins Museum eingetragen', ev("!!window.__dev.S.museum.ids['boss:zerfall']"))
         check('Sieg in der Zeitleiste', ev("window.__dev.S.timeline.some(t=>t.text.includes('Sieg') && t.text.includes('Zerfall'))"))
         check('Produktionsbonus durch Sieg (+1,5 %)', abs(ev("(async()=>{const m=await import('./js/entropie.js');return m.bossBonus(window.__dev.S)})()") - 1.015) < 1e-9)
 

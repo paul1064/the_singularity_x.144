@@ -471,6 +471,7 @@ cv.addEventListener('pointerdown', (e) => {
     pinchDist = pinchStart = Math.hypot(a.x - b.x, a.y - b.y); pinching = false;
   }
   if (!running || cinematic || world.mode !== 'play' || pointers.size > MAX_FINGERS) return;
+  if (world.moment && world.moment.kind === 'boss') { world.hitMoment(e.clientX, e.clientY); return; }   // im Boss-Kampf zählt nur der Kampf (kein Glimmer darf Treffer schlucken)
   if (world.hitGlitch(e.clientX, e.clientY)) { collectFragment(); return; }
   if (world.hitMutation(e.clientX, e.clientY)) { collectMutation(); return; }
   if (!world.moment && world.cracks.length && world.hitCrack(e.clientX, e.clientY)) { sealCrack(e.clientX, e.clientY); return; }
@@ -955,8 +956,9 @@ let erbeView = 'baum', museumOpen = null, museumTick = 0;
 const viewSwitch = () => `<div class="vswitch"><button data-v="baum" class="${erbeView === 'baum' ? 'on' : ''}">Vermächtnis</button><button data-v="museum" class="${erbeView === 'museum' ? 'on' : ''}">Museum <small>${MU.totals(S).found}/${MU.totals(S).total}</small></button></div>`;
 function bindViewSwitch(box) { for (const b of box.querySelectorAll('.vswitch button')) onTap(b, () => { erbeView = b.dataset.v; renderErbe(); }); }
 function museumFund(id) {
+  const v = MU.all().find((x) => x.items.some((i) => i.id === id)); if (!v) return;     // unbekannte ID: ignorieren
   if (!MU.fund(S, id)) return;
-  const v = MU.all().find((x) => x.items.some((i) => i.id === id)), it = v.items.find((i) => i.id === id);
+  const it = v.items.find((i) => i.id === id);
   world.floater(world.cx, world.cy - 100, `Museum: ${it.name}`, v.color);
 }
 function renderMuseum(box) {
@@ -1088,7 +1090,7 @@ function endBoss(win) {
   bossSnd && bossSnd.stop(); bossSnd = null;
   $('bossBar').classList.add('hidden'); document.body.classList.remove('moment');
   const r = EN.bossResult(S, m.key, win, E.prodPerSec(S));
-  if (win) museumFund('boss:' + m.key);
+  if (win) museumFund('boss:' + m.id);
   S.entropy = r.entropy; entStage = EN.entStage(S.entropy); S.bossWins += r.wins; S.runBossWins += r.wins; S.acts.kraft += r.acts;
   if (r.gain) E.earn(S, r.gain);
   if (r.loss) S.complexity = Math.max(0, S.complexity * (1 - r.loss));

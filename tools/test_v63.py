@@ -34,7 +34,7 @@ try:
         pg.wait_for_timeout(800)
         check('Rückwirkender Bonus: 6 Erbe je Universum (36)', S('erbeVP') == 36 and S('erbeTotal') == 36, str(S('erbeVP')))
         check('Anzeige-Fenster „Das Vermächtnis" mit Rückwirkend-Zeile', 'Rückwirkend' in pg.inner_text('#modalCard') and '+36 Erbe' in pg.inner_text('#modalCard'))
-        pg.screenshot(path=f'{out}/gain.png'); ev("document.getElementById('ebNo').click()"); pg.wait_for_timeout(300)
+        pg.screenshot(path=f'{out}/gain.png'); ev("window.__dev.MU.markSeen(window.__dev.S, window.__dev.MU.newThresholds(window.__dev.S))"); ev("document.getElementById('ebNo').click()"); pg.wait_for_timeout(300)
         check('Erbe-Reiter sichtbar mit Punktezahl', ev("!document.querySelector('.tab[data-tab=erbe]').classList.contains('hidden') && document.querySelector('.tab[data-tab=erbe] .pill').textContent==='36'"))
 
         tapv('.tab[data-tab=erbe]'); pg.wait_for_timeout(400)
