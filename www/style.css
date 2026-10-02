@@ -123,7 +123,7 @@ body.moment #panel, body.moment #rail, body.moment .dock, body.moment #voice { o
 #voice.plural { font-weight: 600; font-size: 24px; }
 
 /* ── Panel ───────────────────────────── */
-#panel, #a2panel {
+#panel, #a2panel, #a3panel {
   position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--panel-h) + var(--safe-b));
   background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-top: 1px solid var(--line); border-radius: 22px 22px 0 0; z-index: 6;
@@ -256,19 +256,19 @@ body.moment #panel, body.moment #rail, body.moment .dock, body.moment #voice { o
 
 @media (min-aspect-ratio: 1/1) {
   :root { --panel-h: 100vh; }
-  #panel, #a2panel { left: auto; width: 400px; top: 0; height: 100vh; border-radius: 0; border-top: 0; border-left: 1px solid var(--line); }
+  #panel, #a2panel, #a3panel { left: auto; width: 400px; top: 0; height: 100vh; border-radius: 0; border-top: 0; border-left: 1px solid var(--line); }
   #hud { right: 400px; }
   #rail { right: 412px; bottom: 30px; }
   #voice { right: 440px; bottom: 60px; }
 }
 
-body.cine-mode #hud, body.cine-mode #panel, body.cine-mode #a2panel, body.cine-mode #rail, body.cine-mode #a2c { opacity: 0; pointer-events: none; }
-#hud, #panel, #a2panel, #rail, #a2c { transition: opacity 1.5s; }
+body.cine-mode #hud, body.cine-mode #panel, body.cine-mode #a2panel, body.cine-mode #a3panel, body.cine-mode #rail, body.cine-mode #a2c, body.cine-mode #a3c { opacity: 0; pointer-events: none; }
+#hud, #panel, #a2panel, #a3panel, #rail, #a2c, #a3c { transition: opacity 1.5s; }
 
 /* ── Akt II: Der Orden ───────────────── */
-#a2c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; z-index: 2; }
-#a2c.hidden, #a2panel.hidden { display: none; }
-body.akt2 #panel, body.akt2 #rail, body.akt2 .reso { display: none; }
+#a2c, #a3c { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; touch-action: none; z-index: 2; }
+#a2c.hidden, #a2panel.hidden, #a3c.hidden, #a3panel.hidden { display: none; }
+body.akt2 #panel, body.akt2 #rail, body.akt2 .reso, body.akt3 #panel, body.akt3 #rail, body.akt3 .reso, body.akt3 #ent { display: none; }
 body.akt2 { --accent: #ffd166; --panel-h: 40vh; }
 body.akt2 .amount .sym { color: #ffd166; }
 .field { display: block; margin: 12px 0 0; font-size: 12px; letter-spacing: .06em; color: var(--muted); }
@@ -379,3 +379,23 @@ body.cine-mode #voice { opacity: 0 !important; }
 .mu-item i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.18); flex: none; }
 .mu-item.f { color: #fff; }
 .mu-item.f i { background: var(--c); box-shadow: 0 0 8px var(--c); }
+
+/* Akt III: Das Spiegeluniversum */
+body.akt3 { --accent: #cdbbff; --panel-h: 40vh; }
+body.akt3 .amount .sym { color: #cdbbff; }
+.buy-mode .auto { margin-right: auto; color: #7cf29c; border-color: rgba(124,242,156,.4); }
+.mrow { display: grid; grid-template-columns: 1fr 108px 108px; gap: 6px; align-items: stretch; margin-bottom: 7px; padding: 8px; border-radius: 14px; background: rgba(255,255,255,.035); border: 1px solid var(--line); }
+.mrow .mh b { display: block; font-size: 14px; color: var(--c); }
+.mrow .mh small { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+.mrow .pr { font-size: 10.5px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.mrow .ms { height: 3px; border-radius: 2px; background: rgba(255,255,255,.07); margin-top: 5px; overflow: hidden; }
+.mrow .ms i { display: block; height: 100%; background: var(--c); }
+.mbtn { padding: 7px 6px; border-radius: 11px; border: 1px solid var(--line); text-align: center; font-variant-numeric: tabular-nums; touch-action: manipulation; }
+.mbtn b { display: block; font-size: 11.5px; line-height: 1.25; }
+.mbtn small { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+.mbtn.licht { background: rgba(255,243,176,.06); border-color: rgba(255,243,176,.25); }
+.mbtn.licht.can { background: rgba(255,243,176,.16); border-color: #fff3b0; }
+.mbtn.licht b { color: #fff3b0; }
+.mbtn.schatten { background: rgba(143,107,255,.08); border-color: rgba(143,107,255,.3); }
+.mbtn.schatten.can { background: rgba(143,107,255,.22); border-color: #8f6bff; }
+.mbtn.schatten b { color: #c9b8ff; }

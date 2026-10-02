@@ -10,6 +10,7 @@
 <body>
   <canvas id="world"></canvas>
   <canvas id="a2c" class="hidden"></canvas>
+  <canvas id="a3c" class="hidden"></canvas>
 
   <!-- Oberer Bereich -->
   <header id="hud">
@@ -74,6 +75,20 @@
     </div>
     <div class="tab-body hidden" id="a2-lehrer"></div>
     <div class="tab-body hidden" id="a2-schicksal"></div>
+  </section>
+
+  <!-- Akt III: Das Spiegeluniversum -->
+  <section id="a3panel" class="hidden">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-a3tab="spiegel">Spiegel</button>
+      <button class="tab" data-a3tab="brief">Brief</button>
+    </div>
+    <div class="tab-body" id="a3-spiegel">
+      <div id="a3Leap"></div>
+      <div class="buy-mode"><button id="a3Auto" class="auto">Ausgleichen</button><span id="a3Buy" style="display:contents"><button data-n="1" class="active">×1</button><button data-n="10">×10</button><button data-n="max">MAX</button></span></div>
+      <div id="a3Rows"></div>
+    </div>
+    <div class="tab-body hidden" id="a3-brief"></div>
   </section>
 
   <!-- Vollbild-Ebenen -->

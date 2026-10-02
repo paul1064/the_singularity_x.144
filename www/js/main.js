@@ -13,6 +13,7 @@ import * as KO from './kosmos.js';
 import * as EN from './entropie.js';
 import * as ER from './erbe.js';
 import * as MU from './museum.js';
+import { createAkt3 } from './akt3.js';
 
 const SAVE_KEY = 'singularity-x144';
 const SNAP_KEY = 'singularity-x144-snap';
@@ -346,7 +347,7 @@ function openSettings() {
   openModal(`<div class="kicker">EINSTELLUNGEN</div><h2>Universum ${S.universe}</h2>
     ${sw('music', 'Musik')}${sw('sfx', 'Soundeffekte')}${sw('vibrate', 'Vibration')}
     <p style="margin-top:14px;font-size:12.5px;color:var(--muted)">Durchläufe abgeschlossen: ${S.runsDone} · Fragmente: ${S.fragments.length}/${FRAGMENTS.length}<br>Tipp: Mit zwei Fingern zoomen oder die Punkte rechts antippen, um frühere Größenordnungen zu besuchen.</p>
-    ${S.akt === 1 ? '<button class="btn ghost" id="a2Preview">Akt II: Der Orden (Vorschau)</button>' : (S.a2 && S.a2.preview ? '<button class="btn ghost" id="a2Back">Zurück zu Akt I</button>' : '')}
+    ${S.akt === 1 ? '<button class="btn ghost" id="a2Preview">Akt II: Der Orden (Vorschau)</button><button class="btn ghost" id="a3Preview">Akt III: Das Spiegeluniversum (Vorschau)</button>' : (S.akt === 2 && S.a2 && S.a2.preview ? '<button class="btn ghost" id="a2Back">Zurück zu Akt I</button>' : (S.akt === 3 && S.a3 && S.a3.preview ? '<button class="btn ghost" id="a3Back">Zurück zu Akt I</button>' : ''))}
     <button class="btn ghost" id="chronikSet">Chronik ansehen &amp; teilen</button>
     <button class="btn ghost" id="backupSet">Spielstand sichern <small style="opacity:.6">· zuletzt ${SI.ageText(S.lastBackup)}</small></button>
     <button class="btn ghost" id="closeSet">Schließen</button>
@@ -360,6 +361,8 @@ function openSettings() {
   $('backupSet').onclick = openBackup;
   if ($('a2Preview')) $('a2Preview').onclick = () => { closeModal(); A2.enter(true); };
   if ($('a2Back')) $('a2Back').onclick = () => { closeModal(); A2.leave(); enterPlay(); };
+  if ($('a3Preview')) $('a3Preview').onclick = () => { closeModal(); A3.enter(true); };
+  if ($('a3Back')) $('a3Back').onclick = () => { closeModal(); A3.leave(); enterPlay(); };
   let armed = false;
   $('resetBtn').onclick = (e) => {
     if (!armed) { armed = true; e.target.textContent = 'Wirklich alles löschen? Nochmal tippen'; return; }
@@ -714,11 +717,13 @@ function showEnding(fresh) {
 // ── V4: Chronik ───────────────────────────────────────────────
 const stripHtml = (h) => h.replace(/<small>/g, ' – ').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 function chronikEntry() {
+  if (S.akt === 3 && S.a3) return { u: S.universe, akt: 3, run: S.a3.run, ending: null, min: Math.round(S.a3.playTime / 60), seals: S.a3.seals.length };
   if (S.akt === 2 && S.a2) { const a2 = S.a2; return { u: S.universe, akt: 2, run: a2.run, dim: a2.dim, ending: null, min: Math.round(a2.playTime / 60), mentors: a2.mentors.map((id) => id), layers: a2.layers, avatars: [], myths: [], relics: 0 }; }
   return { u: S.universe, law: S.law, ending: S.ending, avatars: S.avatars.map((id) => AVATAR_OPTS[id].name), myths: S.myths.map((m) => m.name),
     min: Math.round(S.playTime / 60), ethik: S.ethik, letters: S.letters, relics: S.relics.length, sent: E.totalSent(S) };
 }
 function entryLines(en, live) {
+  if (en.akt === 3) { const o = ['Akt III: Das Spiegeluniversum', `Durchgang ${en.run}`]; if (typeof en.ending === 'string' && en.ending) o.push(`Ende: ${en.ending}`); o.push(`Siegel: ${en.seals}/4`); o.push(`${live ? 'Bisher' : 'Dauer'}: ${en.min} min`); return o; }
   if (en.akt === 2) { const o = ['Akt II: Der Orden']; if (en.dim) o.push(`Dimension: ${en.dim}`); if (typeof en.ending === 'string' && en.ending) o.push(`Ende: ${en.ending}`); o.push(`Schicksalsebenen: ${en.layers}/7`); o.push(`${live ? 'Bisher' : 'Dauer'}: ${en.min} min`); return o; }
   const law = en.law ? LAWS.find((l) => l.id === en.law)?.name : null;
   const out = [];
@@ -1203,6 +1208,10 @@ onTap($('settingsBtn'), openSettings);
 let last = performance.now(), uiT = 0, saveT = 0;
 function loop(now) {
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (S.akt === 3 && A3.active) {       // Akt III: Das Spiegeluniversum
+    A3.frame(dt); world.update(dt); world.draw(); A3.draw();
+    requestAnimationFrame(loop); return;
+  }
   if (S.akt === 2 && A2.active) {       // Akt II: Der Orden
     A2.frame(dt); world.update(dt); world.draw(); A2.draw();
     requestAnimationFrame(loop); return;
@@ -1443,7 +1452,7 @@ async function bigBang(k, intent) {
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
     letters: S.letters, letterChoices: S.letterChoices, ethik: S.ethik, lastLaw: S.law,
     pantheon: S.pantheon, endings: S.endings, bossWins: S.bossWins, entIntro: S.entIntro, chronik: [...S.chronik, chronikEntry()],
-    akt: S.universe + 1 >= 155 ? 2 : S.akt, a2: S.a2,
+    akt: S.universe + 1 >= 155 ? 2 : S.akt, a2: S.a2, a3: S.a3,
     legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
@@ -1472,6 +1481,7 @@ document.addEventListener('visibilitychange', () => {
   else {
     const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
     if (S.akt === 2) A2.offline((Date.now() - S.lastSeen) / 1000);
+    else if (S.akt === 3) A3.offline((Date.now() - S.lastSeen) / 1000);
     else if (running && away > 30 && !S.finished) {
       const gain = E.prodPerSec(S) * away * E.offlineEfficiency(S);
       E.earn(S, gain); tickAvatarCd(away);
@@ -1498,6 +1508,9 @@ window.addEventListener('resize', () => world.resize());
 
 // ── Akt II: Der Orden (ab Universum 155) ─────────────────────
 const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, modalOpen, world, music, say, vibrate,
+  pushChronik: (e) => { S.chronik.push(e); },
+  toAkt3: () => { A2.leave(); A3.enter(); } });
+const A3 = createAkt3({ getS: () => S, save, $, onTap, openModal, closeModal, modalOpen, world, music, say, vibrate,
   pushChronik: (e) => { S.chronik.push(e); } });
 
 // ── Start ─────────────────────────────────────────────────────
@@ -1511,12 +1524,13 @@ const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, mo
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
   const rawAway = (Date.now() - S.lastSeen) / 1000;
-  if (S.akt !== 2 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); if (entOn() && S.entIntro) { EN.offline(S, away); entStage = EN.entStage(S.entropy); } }
+  if ((S.akt || 1) === 1 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); if (entOn() && S.entIntro) { EN.offline(S, away); entStage = EN.entStage(S.entropy); } }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) takeSnapshot(JSON.parse(raw)); } catch { /* */ }   // V6: täglicher Schnappschuss
   await titleScreen(offline);
   backupReminder();
+  if (S.akt === 3) { cinematic = false; running = true; A3.enter(); A3.offline(rawAway); return; }
   if (S.akt === 2) { cinematic = false; running = true; A2.enter(); A2.offline(rawAway); return; }
   if (S.finished) { running = true; music.setLevel(8); world.zMax = 7; thoughtScreen(); return; }
   enterPlay();
@@ -1541,6 +1555,7 @@ if (location.search.includes('dev')) {
     bigBang(k, i) { return bigBang(k, i); },
     queue: checkQueue,
     A2,
+    A3,
     film: playFilm,
     ER,
     MU,

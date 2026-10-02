@@ -16,7 +16,7 @@ export const ENT = {
   bossBonus: 0.015,      // je besiegtem Boss dauerhaft +1,5 % Produktion …
   bossBonusMax: 20,      // … bis 20 Siege
 };
-export const entActive = (S) => S.akt !== 2 && S.runsDone >= ENT.fromRun && !S.finished;
+export const entActive = (S) => (S.akt || 1) === 1 && S.runsDone >= ENT.fromRun && !S.finished;
 // Anstieg in Prozentpunkten pro Sekunde: später (Epoche) und in älteren Universen schneller; jeder offene Riss gibt Zusatz
 export const entRate = (S, cracks = 0) => (0.05 + 0.02 * S.epoch) * (1 + 0.05 * Math.min(10, Math.max(0, S.runsDone - ENT.fromRun))) * erbeFx(S).entRate + cracks * 0.05;
 export const entMult = (S) => 1 - ENT.penaltyMax * erbeFx(S).penalty * Math.max(0, ((S.entropy || 0) - ENT.penaltyStart) / (100 - ENT.penaltyStart));

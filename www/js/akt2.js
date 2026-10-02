@@ -523,6 +523,11 @@ export function createAkt2(C) {
     await ask(`<div class="kicker" style="color:#fff">DIE TRANSZENDENTE SINGULARITÄT</div><h2>${d.name}</h2><p class="quote">Das Bewusstsein geht über sich hinaus. Eine neue Dimension entsteht.</p><p>${d.text}</p>${special}<div class="rd-fx">Dauerhaft: Produktion ×1,25 · ${d.effect}</div>`, 'Eintreten');
     if (!a2.preview) C.pushChronik({ u: S.universe, akt: 2, run: a2.run, dim: a2.dim + 1, ending: en.name, min: Math.round(a2.playTime / 60), mentors: a2.mentors.map((id) => MENTORS.find((m) => m.id === id).name), layers: a2.layers });
     a2.dim++; a2.run++; if (!a2.preview) S.universe++; A.resetRun(a2);
+    if (a2.dim >= DIMENSIONS.length && !a2.preview) {        // alle neun Dimensionen: Das Bewusstsein wendet sich um
+      busy = false; save();
+      await cine(['Neun Dimensionen. Nichts bleibt, was nach außen zeigt.', 'Das Bewusstsein wendet sich um.']);
+      C.toAkt3(); return;
+    }
     startRun(); recalc(); layout(); refreshAll(); busy = false; save();
     C.world.doFlash('#ffffff', 1);
     C.say([`Universum ${S.universe}. Der Orden beginnt von vorn, aber du bist nicht mehr derselbe.`], 'plural');
