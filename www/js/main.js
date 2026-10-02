@@ -12,6 +12,7 @@ import * as SI from './sicherung.js';
 import * as KO from './kosmos.js';
 import * as EN from './entropie.js';
 import * as ER from './erbe.js';
+import * as MU from './museum.js';
 
 const SAVE_KEY = 'singularity-x144';
 const SNAP_KEY = 'singularity-x144-snap';
@@ -515,6 +516,7 @@ function pickMutation() {
 function collectMutation(forced, fromPower) {
   const m = forced || pickMutation();
   if (!fromPower) { S.acts.mutation++; EN.relief(S, 'mutation'); }
+  museumFund('mut:' + m.id);
   music.fragment(); vibrate([10, 20, 10]);
   world.doFlash('#7cf29c', 0.25);
   let text = m.text;
@@ -766,7 +768,7 @@ function openChronik() {
 // ── V3: Kosmische Gesetze ─────────────────────────────────────
 function ensureLaw() {
   if (!creator() || S.law) return;
-  S.law = pick(LAWS.filter((l) => l.id !== S.lastLaw)).id; S.pendingLaw = true; save();
+  S.law = pick(LAWS.filter((l) => l.id !== S.lastLaw)).id; S.pendingLaw = true; museumFund('law:' + S.law); save();
 }
 function showLaw() {
   const l = LAWS.find((x) => x.id === S.law);
@@ -832,7 +834,7 @@ function updateMoment() {
 function endMoment(win) {
   const m = world.moment; world.moment = null;
   document.body.classList.remove('moment'); $('momentBar').classList.add('hidden');
-  S.moments.push(m.e); S.pendingMoment = null; if (win) { S.acts.moment++; EN.relief(S, 'moment'); }
+  S.moments.push(m.e); S.pendingMoment = null; if (win) { S.acts.moment++; EN.relief(S, 'moment'); museumFund('mom:' + m.e); }
   const r = m.reward, gain = (E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0)) * ER.erbeFx(S).gain;
   E.earn(S, gain);
   if (win) {
@@ -852,6 +854,7 @@ function endMoment(win) {
 // ── V6.1: Kosmische Ereignisse (Entscheidung in Echtzeit) ─────
 function startCosmic(def) {
   cosmic = { def, t: 0, riser: music.riser(KO.COSMOS_DUR - 1), beat: 0 };
+  museumFund('cos:' + def.id);
   lastCosmic = def.id;
   const box = $('cosmicBar'); box.classList.remove('hidden');
   box.style.setProperty('--c', def.color);
@@ -920,6 +923,7 @@ function erbeSummary() {
 }
 function renderErbe() {
   const box = $('tab-erbe'); if (!box) return;
+  if (erbeView === 'museum') { renderMuseum(box); return; }
   const node = (id) => {
     const n = ER.NODE[id], own = ER.owned(S, id), can = !ER.why(S, id), br = ER.BRANCHES[n.b] || { color: '#fff3b0' };
     return `<button class="enode ${own ? 'own' : can ? 'can' : ER.why(S, id).startsWith('Es fehlen') ? 'near' : 'lock'}${erbeSel === id ? ' sel' : ''}" data-n="${id}" style="--c:${br.color}" aria-label="${n.name}"><span>${id === 'k' ? '144' : n.t}</span></button>`;
@@ -928,7 +932,7 @@ function renderErbe() {
   const sel = erbeSel && ER.NODE[erbeSel] ? ER.NODE[erbeSel] : null;
   const reason = sel ? ER.why(S, sel.id) : null;
   const sum = erbeSummary();
-  box.innerHTML = `<div class="erbe-head"><div><small>ERBE-PUNKTE</small><b>${S.erbeVP || 0}</b></div><div><small>INSGESAMT</small><b>${S.erbeTotal || 0}</b></div><div><small>VERTEILT</small><b>${ER.spent(S)} / ${ER.TOTAL_COST}</b></div></div>
+  box.innerHTML = `${viewSwitch()}<div class="erbe-head"><div><small>ERBE-PUNKTE</small><b>${S.erbeVP || 0}</b></div><div><small>INSGESAMT</small><b>${S.erbeTotal || 0}</b></div><div><small>VERTEILT</small><b>${ER.spent(S)} / ${ER.TOTAL_COST}</b></div></div>
     <div class="erbe-grid">${col('schoepfer')}${col('bewahrer')}${col('zerstoerer')}</div>
     <div class="erbe-key"><i class="eline long"></i>${node('k')}</div>
     <div class="erbe-detail" style="--c:${sel ? (ER.BRANCHES[sel.b] || { color: '#fff3b0' }).color : '#fff3b0'}">${sel
@@ -936,6 +940,7 @@ function renderErbe() {
       : '<p style="margin:0;color:var(--muted)">Tippe einen Knoten an. Jedes vollendete Universum gibt Erbe: Avatare, Mythen, neue Enden und besiegte Bosse zählen.</p>'}</div>
     ${sum.length ? `<div class="erbe-sum"><small>DEIN VERMÄCHTNIS WIRKT</small>${sum.map((x) => `<span>${x}</span>`).join('')}</div>` : ''}
     ${ER.spent(S) ? '<button class="btn ghost" id="eReset">Alles neu verteilen (kostenlos)</button>' : ''}`;
+  bindViewSwitch(box);
   for (const b of box.querySelectorAll('.enode')) onTap(b, () => { erbeSel = b.dataset.n; renderErbe(); });
   if ($('eBuy')) onTap($('eBuy'), () => {
     if (!ER.buy(S, erbeSel)) return;
@@ -945,6 +950,50 @@ function renderErbe() {
   });
   if ($('eReset')) onTap($('eReset'), () => { ER.respec(S); refreshErbeTab(); updateHud(); save(); renderErbe(); });
 }
+// ── V6.4: Das Museum der Universen ────────────────────────────
+let erbeView = 'baum', museumOpen = null, museumTick = 0;
+const viewSwitch = () => `<div class="vswitch"><button data-v="baum" class="${erbeView === 'baum' ? 'on' : ''}">Vermächtnis</button><button data-v="museum" class="${erbeView === 'museum' ? 'on' : ''}">Museum <small>${MU.totals(S).found}/${MU.totals(S).total}</small></button></div>`;
+function bindViewSwitch(box) { for (const b of box.querySelectorAll('.vswitch button')) onTap(b, () => { erbeView = b.dataset.v; renderErbe(); }); }
+function museumFund(id) {
+  if (!MU.fund(S, id)) return;
+  const v = MU.all().find((x) => x.items.some((i) => i.id === id)), it = v.items.find((i) => i.id === id);
+  world.floater(world.cx, world.cy - 100, `Museum: ${it.name}`, v.color);
+}
+function renderMuseum(box) {
+  const prog = MU.progress(S), tot = MU.totals(S);
+  const card = (v, p) => {
+    const open = museumOpen === v.id;
+    return `<div class="mu-card${open ? ' open' : ''}" style="--c:${v.color}"><button class="mu-top" data-v="${v.id}"><span><b>${v.name}</b><small>${v.sub}</small></span><em>${p.found}/${p.total}</em></button>
+      <div class="mu-bar"><i style="width:${p.found / p.total * 100}%"></i><u></u></div>
+      <div class="mu-bon"><span class="${p.half ? 'on' : ''}">${p.half ? '✓ ' : ''}ab ${Math.ceil(p.total / 2)}: ${v.bonus[0][0]}</span><span class="${p.full ? 'on' : ''}">${p.full ? '✓ ' : ''}vollständig: ${v.bonus[1][0]}</span></div>
+      ${open ? `<div class="mu-items">${v.items.map((i) => { const f = i.found(S); return `<button class="mu-item${f ? ' f' : ''}" data-i="${i.id}"><i></i><span>${f ? i.name : '???'}</span></button>`; }).join('')}</div>` : ''}</div>`;
+  };
+  box.innerHTML = `${viewSwitch()}<div class="erbe-head"><div><small>FUNDE</small><b>${tot.found} / ${tot.total}</b></div><div><small>VITRINEN VOLL</small><b>${prog.filter((p) => p.full).length} / ${prog.length}</b></div></div>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Alles, was du in allen Universen findest, steht hier. Jede Vitrine gibt bei der Hälfte und bei Vollständigkeit einen dauerhaften Bonus.</p>
+    ${MU.all().map((v, i) => card(v, prog[i])).join('')}`;
+  bindViewSwitch(box);
+  for (const b of box.querySelectorAll('.mu-top')) onTap(b, () => { museumOpen = museumOpen === b.dataset.v ? null : b.dataset.v; renderErbe(); });
+  for (const b of box.querySelectorAll('.mu-item')) onTap(b, () => {
+    const v = MU.all().find((x) => x.items.some((i) => i.id === b.dataset.i)), it = v.items.find((i) => i.id === b.dataset.i), f = it.found(S);
+    const when = S.museum && S.museum.ids[it.id] ? ` · gefunden in Universum ${S.museum.ids[it.id]}` : '';
+    openModal(`<div class="kicker" style="color:${v.color}">${v.name.toUpperCase()}${f ? when : ''}</div><h2>${f ? it.name : 'Noch nicht gefunden'}</h2>
+      ${f ? it.text.split('\n').map((l) => `<p class="quote">${l}</p>`).join('') : `<p class="quote">${it.hint}</p>`}<button class="btn" id="muOk">Zurück zum Museum</button>`);
+    $('muOk').onclick = closeModal;
+  });
+}
+// Neue Schwellen (50 % / 100 %) melden, gesammelt in einem Fenster (nur alle ~2 s geprüft)
+function museumCheck() {
+  museumTick++; if (museumTick % 10) return;
+  const L = MU.newThresholds(S); if (!L.length) return;
+  MU.markSeen(S, L); save();
+  music.boom(); world.doFlash('#ffe08a', 0.4); vibrate([30, 40, 80]);
+  openModal(`<div class="kicker" style="color:#ffe08a">DAS MUSEUM</div><h2>${L.length > 1 ? 'Neue Boni' : L[0].level === 2 ? 'Vitrine vollständig' : 'Halbe Vitrine'}</h2>
+    ${L.map((t) => `<div class="row"><span><b style="color:${t.v.color}">${t.v.name}</b><br><small style="color:var(--muted)">${t.level === 2 ? 'vollständig' : 'zur Hälfte'}</small></span><b style="color:#ffe08a;text-align:right;max-width:55%">${t.text}</b></div>`).join('')}
+    <button class="btn" id="muGo">Zum Museum</button><button class="btn ghost" id="muNo">Später</button>`);
+  $('muNo').onclick = closeModal;
+  $('muGo').onclick = () => { closeModal(); erbeView = 'museum'; const t = document.querySelector('#panel .tab[data-tab="erbe"]'); for (const k of ['pointerdown', 'pointerup']) t.dispatchEvent(new PointerEvent(k, { bubbles: true, pointerId: 1, clientX: 5, clientY: 5 })); };
+}
+
 function showErbeGain() {
   const g = S.pendingErbe; if (!g) return;
   S.pendingErbe = null; save();
@@ -1039,6 +1088,7 @@ function endBoss(win) {
   bossSnd && bossSnd.stop(); bossSnd = null;
   $('bossBar').classList.add('hidden'); document.body.classList.remove('moment');
   const r = EN.bossResult(S, m.key, win, E.prodPerSec(S));
+  if (win) museumFund('boss:' + m.key);
   S.entropy = r.entropy; entStage = EN.entStage(S.entropy); S.bossWins += r.wins; S.runBossWins += r.wins; S.acts.kraft += r.acts;
   if (r.gain) E.earn(S, r.gain);
   if (r.loss) S.complexity = Math.max(0, S.complexity * (1 - r.loss));
@@ -1175,7 +1225,7 @@ function loop(now) {
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; if (ERBE_MODAL && S.pendingErbe && !modalOpen() && !cinematic && !world.moment && !cosmic) showErbeGain(); updateEntropyHud(); updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; if (ERBE_MODAL && S.pendingErbe && !modalOpen() && !cinematic && !world.moment && !cosmic) showErbeGain(); else if (ERBE_MODAL && !modalOpen() && !cinematic && !world.moment && !cosmic) museumCheck(); updateEntropyHud(); updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen() && !world.moment) {
@@ -1384,6 +1434,7 @@ async function bigBang(k, intent) {
   addTimeline('<b>Der Gedanke</b><small>Das Kollektiv dachte einen neuen Urknall.</small>', 'leap', '#fff3b0');
   const eg = S.akt === 2 ? null : ER.gain(S);     // V6.3: Erbe für das vollendete Universum
   const keep = {
+    museum: S.museum,
     erbeVP: (S.erbeVP || 0) + (eg ? eg.total : 0), erbeTotal: (S.erbeTotal || 0) + (eg ? eg.total : 0), erbeNodes: S.erbeNodes, erbeRetro: true,
     universe: S.universe + 1, runsDone: S.runsDone + 1, lifetime: S.lifetime,
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
@@ -1451,6 +1502,7 @@ const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, mo
 (async function boot() {
   requestAnimationFrame(loop);
   if (!S.introSeen) { await firstIntro(); return; }
+  if (S.law) MU.fund(S, 'law:' + S.law);
   const retro = ER.retro(S); if (retro) { S.pendingErbe = retro; save(); }   // V6.3: einmaliger Bonus für bereits gespielte Universen
   refreshErbeTab();
   // Offline-Ertrag
@@ -1489,6 +1541,10 @@ if (location.search.includes('dev')) {
     A2,
     film: playFilm,
     ER,
+    MU,
+    museumFund,
+    museumCheck() { museumTick = 0; museumCheck(); },
+    setView(v) { erbeView = v; },
     renderErbe,
     showErbeGain,
     refreshErbeTab,

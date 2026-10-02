@@ -60,6 +60,7 @@ export function newState() {
     pendingMyth: null,      // V4: Epoche, deren Mythos noch aussteht
     pantheon: [],           // V4: [{u, name}] Götter früherer Universen (bleibt)
     endings: [],            // V4: freigeschaltete Enden (bleibt)
+    museum: { ids: {}, seen: [] },   // V6.4: Funde und gemeldete Schwellen des Museums (bleibt)
     erbeVP: 0,              // V6.3: freie Erbe-Punkte (bleibt)
     erbeTotal: 0,           // V6.3: insgesamt verdiente Erbe-Punkte (bleibt)
     erbeNodes: [],          // V6.3: erworbene Knoten des Vermächtnis-Baums (bleibt)

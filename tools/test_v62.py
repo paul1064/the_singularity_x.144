@@ -72,7 +72,11 @@ try:
         hp0 = ev("window.__dev.world.moment.hp")
         spam(10); pg.wait_for_timeout(100)
         check('Tippen verursacht Schaden', ev("window.__dev.world.moment.hp") < hp0 - 5, f"{hp0} → {ev('window.__dev.world.moment.hp')}")
-        wk = ev("window.__dev.world.moment.weaks[0] || null")
+        wk = None
+        for _ in range(30):
+            wk = ev("window.__dev.world.moment.weaks.find(w=>w.life>1.2) || null")
+            if wk: break
+            pg.wait_for_timeout(100)
         if wk:
             h1 = ev("window.__dev.world.moment.hp"); pg.mouse.click(wk['x'], wk['y']); pg.wait_for_timeout(100)
             check('Schwachpunkt macht 10 Schaden', ev("window.__dev.world.moment.hp") <= h1 - 9, f"{h1} → {ev('window.__dev.world.moment.hp')}")

@@ -4,6 +4,8 @@
 //  Drei Äste (Schöpfer / Bewahrer / Zerstörer) mit je 4 Stufen und ein Schlussstein.
 //  Das Erbe wird nie verbraucht, nur verteilt, und lässt sich jederzeit kostenlos neu verteilen.
 // ─────────────────────────────────────────────────────────────
+import { museumFx, museumKey } from './museum.js';
+
 export const BRANCHES = {
   schoepfer:  { name: 'Schöpfer',  color: '#ffd166', sub: 'Wachstum' },
   bewahrer:   { name: 'Bewahrer',  color: '#5ee7df', sub: 'Ordnung' },
@@ -32,13 +34,12 @@ const BASE = () => ({ prod: 1, tap: 1, leap: 1, offline: 1, mut: 1, gain: 1, ent
 
 let cacheKey = null, cacheVal = null;
 export function erbeFx(S) {
-  const key = (S.erbeNodes || []).join(',');
+  const key = (S.erbeNodes || []).join(',') + '|' + museumKey(S);
   if (key === cacheKey) return cacheVal;
   const f = BASE();
-  for (const id of S.erbeNodes || []) {
-    const n = NODE[id]; if (!n) continue;
-    for (const [k, v] of Object.entries(n.fx)) f[k] = ADD.has(k) ? f[k] + v : f[k] * v;
-  }
+  const apply = (fx) => { for (const [k, v] of Object.entries(fx)) f[k] = ADD.has(k) ? f[k] + v : f[k] * v; };
+  for (const id of S.erbeNodes || []) { const n = NODE[id]; if (n) apply(n.fx); }
+  for (const fx of museumFx(S)) apply(fx);        // V6.4: Boni aus den Vitrinen des Museums
   cacheKey = key; cacheVal = f;
   return f;
 }
