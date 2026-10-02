@@ -89,7 +89,7 @@ with sync_playwright() as p:
     pg.evaluate('window.__dev.world.z=1;window.__dev.world.zTarget=1'); pg.wait_for_timeout(200)
     pg.screenshot(path=f'{out}/1-relikt.png')
     print('   Relikt-Position', rm, 'z=', pg.evaluate('window.__dev.world.z'))
-    pg.evaluate('window.__dev.world.mutation=null;window.__dev.world.glitch=null')
+    pg.evaluate("window.__dev.world.mutation=null;window.__dev.world.glitch=null;window.__dev.world.relics.filter(r=>r.id!=='mutter').forEach(r=>{r.x=-900;r.y=-900})")   # zweites Relikt darf nicht zufällig darüberliegen
     touch('touchStart', [{'x': rm['x'], 'y': rm['y'], 'id': 1}]); touch('touchEnd', [])
     pg.wait_for_timeout(300)
     check('Relikt eingesammelt', S('relics') == ['mutter'], json.dumps(S('relics')))

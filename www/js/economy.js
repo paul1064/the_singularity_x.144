@@ -2,6 +2,7 @@
 //  Ökonomie — reine Funktionen (auch in Node testbar)
 // ─────────────────────────────────────────────────────────────
 import { GENERATORS, MILESTONES, EPOCHS, AVATAR_OPTS, LAWS, LETTERS, DOGMAS } from './data.js';
+import { entMult, bossBonus } from './entropie.js';
 
 export const TUNING = {
   costBase: 12,
@@ -58,6 +59,10 @@ export function newState() {
     pendingMyth: null,      // V4: Epoche, deren Mythos noch aussteht
     pantheon: [],           // V4: [{u, name}] Götter früherer Universen (bleibt)
     endings: [],            // V4: freigeschaltete Enden (bleibt)
+    entropy: 0,             // V6.2: Entropie in % (0–100)
+    bossDone: [],           // V6.2: in diesem Durchlauf besiegte Bosse (Epochen)
+    bossWins: 0,            // V6.2: besiegte Bosse insgesamt (bleibt)
+    entIntro: false,        // V6.2: Einführung gesehen (bleibt)
     ending: null,           // V4: Ende dieses Durchlaufs
     chronik: [],            // V4: abgeschlossene Universen (bleibt)
     sent: {},               // V4: Zeitparadox: Sendungen je Epoche (dieser Durchlauf)
@@ -183,7 +188,7 @@ export function genProd(state, i) {
 export function prodPerSec(state) {
   let s = 0;
   for (let i = 0; i < GENERATORS.length; i++) if (state.owned[i]) s += genProd(state, i);
-  return s * buffMult(state, 'prod');
+  return s * buffMult(state, 'prod') * entMult(state) * bossBonus(state);
 }
 
 export function tapMult(state) {

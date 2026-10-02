@@ -10,6 +10,7 @@ import { createAkt2 } from './akt2.js';
 import { AGES } from './akt2data.js';
 import * as SI from './sicherung.js';
 import * as KO from './kosmos.js';
+import * as EN from './entropie.js';
 
 const SAVE_KEY = 'singularity-x144';
 const SNAP_KEY = 'singularity-x144-snap';
@@ -31,6 +32,9 @@ let res = 0;                // V2: Resonanz 0–1 (nicht gespeichert)
 let lastTapAt = 0;
 const COSMOS_ON = !location.search.includes('dev') || location.search.includes('cosmos');   // Tests nicht stören
 let nextCosmic = KO.cosmosWait(true), lastCosmic = null, cosmic = null;   // V6.1: kosmische Ereignisse
+const ENT_ON = !location.search.includes('dev') || location.search.includes('ent');   // Tests nicht stören
+const entOn = () => ENT_ON && EN.entActive(S);
+let entStage = EN.entStage(S.entropy || 0), nextCrack = 12, leapBusy = false, bossRes = null, bossSnd = null;   // V6.2: Entropie
 let nextMut = 18;           // V2: Sekunden bis zur nächsten Mutation (die erste kommt früh)
 
 // ── Speichern / Laden ─────────────────────────────────────────
@@ -234,7 +238,7 @@ function buyGen(i) {
   const n = buyAmount(i), cost = E.genCost(S, i, n);
   if (S.complexity < cost) { vibrate(20); return; }
   const before = S.owned[i];
-  S.complexity -= cost; S.owned[i] += n;
+  S.complexity -= cost; S.owned[i] += n; EN.relief(S, 'buy');
   music.buy(); vibrate(10);
   world.setDensity(S.owned);
   if (MILESTONES.some((m) => before < m && S.owned[i] >= m)) {
@@ -246,11 +250,18 @@ function buyGen(i) {
 }
 
 async function doLeap() {
-  if (cinematic || S.finished) return;
+  if (cinematic || S.finished || leapBusy) return;
   const cost = E.leapCost(S, S.epoch);
   if (S.complexity < cost) { vibrate(20); return; }
-  S.complexity -= cost;
   const from = S.epoch;
+  if (ENT_ON && EN.needsBoss(S, from)) {      // V6.2: Vor der Schwelle stellt sich die Entropie in den Weg
+    leapBusy = true;
+    await runBoss(from);
+    leapBusy = false;
+    if (!S.bossDone.includes(from)) S.bossDone.push(from);
+    if (S.complexity < cost) { updateHud(); return; }
+  }
+  S.complexity -= cost;
   addTimeline(`<b>${LEAPS[from]}</b><small>Evolutionssprung ${from + 1}</small>`);
   if (from === 7) { save(); return finale(); }
 
@@ -263,7 +274,7 @@ async function doLeap() {
   r && r.stop();
   music.boom(); world.doFlash(EPOCHS[S.epoch].color, 0.9); world.shake = KO.leapShake(S.epoch); vibrate(KO.leapHaptik(S.epoch));
   world.setEpoch(S.epoch, true);
-  music.setLevel(S.epoch + 1);
+  music.setLevel(S.epoch + 1); EN.relief(S, 'leap');
   refreshStatic();
   voiceEnter(S.epoch);
   await wait(2600);
@@ -311,7 +322,7 @@ function fragmentPool() {
 }
 function collectFragment() {
   const pool = fragmentPool(); if (!pool.length) return;
-  const i = pool[0];
+  const i = pool[0]; EN.relief(S, 'glitch');
   S.fragments.push(i);
   music.fragment(); vibrate([15, 30, 15]);
   save(); renderFragments();
@@ -460,6 +471,7 @@ cv.addEventListener('pointerdown', (e) => {
   if (!running || cinematic || world.mode !== 'play' || pointers.size > MAX_FINGERS) return;
   if (world.hitGlitch(e.clientX, e.clientY)) { collectFragment(); return; }
   if (world.hitMutation(e.clientX, e.clientY)) { collectMutation(); return; }
+  if (!world.moment && world.cracks.length && world.hitCrack(e.clientX, e.clientY)) { sealCrack(e.clientX, e.clientY); return; }
   if (world.moment && world.hitMoment(e.clientX, e.clientY)) return;
   const rel = world.hitRelic(e.clientX, e.clientY);
   if (rel) { collectRelic(rel.id); return; }
@@ -487,6 +499,7 @@ function tap(x, y) {
   world.floater(x + (Math.random() - 0.5) * 40, y - 14 - Math.random() * 16, '+' + fmt(v), '#ffffff');
   const now = performance.now();
   if (now - lastSfx > 45) { music.tap(); lastSfx = now; }
+  EN.relief(S, 'tap');
   if (now - lastTap > 60) vibrate(KO.tapHaptik(S.epoch));
   lastTap = now;
 }
@@ -500,7 +513,7 @@ function pickMutation() {
 }
 function collectMutation(forced, fromPower) {
   const m = forced || pickMutation();
-  if (!fromPower) S.acts.mutation++;
+  if (!fromPower) { S.acts.mutation++; EN.relief(S, 'mutation'); }
   music.fragment(); vibrate([10, 20, 10]);
   world.doFlash('#7cf29c', 0.25);
   let text = m.text;
@@ -579,7 +592,7 @@ function firePower(id) {
   if (cinematic || S.finished || modalOpen() || world.moment) return;
   const o = AVATAR_OPTS[id], cd = S.avatarCd[id] || 0;
   if (cd > 0) { vibrate(15); world.floater(world.cx, world.cy - 60, `${o.power.name} · noch ${Math.ceil(cd)} s`, '#ffffff'); return; }
-  S.avatarCd[id] = o.power.cd; S.acts.kraft++;
+  S.avatarCd[id] = o.power.cd; S.acts.kraft++; EN.relief(S, 'power');
   const col = EPOCHS[o.epoch].color;
   music.boom(); vibrate([20, 30, 60]); world.doFlash(col, 0.35); world.burst(world.cx, world.cy, col, 50, 1.6);
   world.floater(world.cx, world.cy - 80, `${o.name}: ${o.power.name}`, col);
@@ -808,6 +821,7 @@ function startMoment(e) {
 }
 function updateMoment() {
   const m = world.moment; if (!m) return;
+  if (m.kind === 'boss') { updateBoss(m); return; }
   const bar = $('momentBar');
   bar.querySelector('.bar i').style.width = `${Math.max(0, 1 - m.t / m.dur) * 100}%`;
   const txt = m.kind === 'collect' ? `${m.n - m.left} / ${m.n} Funken` : (m.prog > 0 ? `Halten … ${m.prog.toFixed(1).replace('.', ',')} / ${m.hold} s` : m.text);
@@ -817,7 +831,7 @@ function updateMoment() {
 function endMoment(win) {
   const m = world.moment; world.moment = null;
   document.body.classList.remove('moment'); $('momentBar').classList.add('hidden');
-  S.moments.push(m.e); S.pendingMoment = null; if (win) S.acts.moment++;
+  S.moments.push(m.e); S.pendingMoment = null; if (win) { S.acts.moment++; EN.relief(S, 'moment'); }
   const r = m.reward, gain = E.prodPerSec(S) * r.secs * (win ? 1 : 0.2) + (win ? E.tapValue(S, undefined, 0) * 20 : 0);
   E.earn(S, gain);
   if (win) {
@@ -860,6 +874,7 @@ function endCosmic(choice) {
   $('cosmicBar').classList.add('hidden'); document.body.classList.remove('moment');
   const o = KO.cosmosOutcome(c.def, choice, E.prodPerSec(S), E.tapValue(S, undefined, 0), S.complexity);
   if (o.act) S.acts[o.act]++;
+  if (o.win) EN.relief(S, choice === 'nutzen' ? 'cosmosNutzen' : 'cosmos');
   if (o.gain >= 0) E.earn(S, o.gain); else S.complexity = Math.max(0, S.complexity + o.gain);
   if (o.buff) S.buffs.push({ id: 'kosmos', n: o.buff.n, k: o.buff.k, m: o.buff.m, t: o.buff.dur });
   const col = o.win ? c.def.color : (choice ? '#ff6b81' : '#8a93b8');
@@ -875,6 +890,103 @@ function endCosmic(choice) {
   updateHud(); updateBuffs(); save();
 }
 for (const k of ['abwehren', 'umlenken', 'nutzen']) onTap($('cos-' + k), () => cosmic && endCosmic(k));
+
+// ── V6.2: Die Entropie ────────────────────────────────────────
+function updateEntropy(dt) {
+  if (!S.entIntro && !modalOpen()) { showEntropyIntro(); return; }
+  if (!S.entIntro) return;
+  EN.tick(S, dt, world.cracks.length);
+  const st = EN.entStage(S.entropy);
+  if (st > entStage) {
+    entStage = st;
+    const l = EN.STAGE_LINES[st];
+    if (l) say(l, 'plural');
+    music.boom(st >= 3); vibrate([60, 40, 120]); world.shake = Math.max(world.shake, 0.6 + st * 0.2); world.doFlash('#2a0a4a', 0.5);
+    addTimeline(`Die Entropie: <b>${EN.STAGE_NAME[st]}</b><small>${l ? l[0] : ''}</small>`, 'choice', '#8f6bff');
+  } else if (st < entStage) entStage = st;
+  if (S.entropy >= ENT_CRACK) {
+    nextCrack -= dt;
+    if (nextCrack <= 0 && world.cracks.length < 3 && !cosmic) { world.spawnCrack(); vibrate([20, 30, 20]); nextCrack = st >= 3 ? 8 + Math.random() * 5 : 14 + Math.random() * 8; }
+  } else if (world.cracks.length) world.cracks = [];
+  if (S.entropy >= 100 && !modalOpen() && !cosmic) {          // Kollaps: sie bricht durch
+    world.cracks = [];
+    runBoss('kollaps');
+  }
+}
+const ENT_CRACK = EN.ENT.crackAt;
+function sealCrack(x, y) {
+  EN.relief(S, 'crack');
+  music.fragment(); vibrate([15, 25, 30]);
+  world.doFlash('#b58cff', 0.2); world.floater(x, y - 30, 'Riss versiegelt', '#b58cff');
+}
+function updateEntropyHud() {
+  const el = $('ent');
+  const on = entOn() && S.entIntro;
+  el.classList.toggle('on', on);
+  const f = on ? S.entropy / 100 : 0;
+  world.entropy = on ? Math.max(0, (S.entropy - 15) / 85) : 0;
+  const fl = Math.max(0, (S.entropy - 20) / 80);
+  $('world').style.filter = on && fl > 0.02 ? `saturate(${(1 - 0.65 * fl).toFixed(2)}) brightness(${(1 - 0.25 * fl).toFixed(2)})` : '';
+  music.setEntropy(on ? fl : 0);
+  if (!on) return;
+  el.className = `ent on s${EN.entStage(S.entropy)}`;
+  el.querySelector('i').style.width = `${f * 100}%`;
+  const pen = 1 - EN.entMult(S);
+  el.querySelector('span').textContent = `ENTROPIE ${Math.floor(S.entropy)} %${pen > 0.005 ? ` · Produktion −${Math.round(pen * 100)} %` : ''}`;
+}
+async function showEntropyIntro() {
+  S.entIntro = true; save();
+  music.boom(true); world.doFlash('#2a0a4a', 0.8); world.shake = 1; vibrate([80, 50, 200]);
+  openModal(`<div class="kicker" style="color:#8f6bff">DER GEGENSPIELER</div><h2>${EN.INTRO.title}</h2>
+    ${EN.INTRO.text.split('\n\n').map((p) => `<p class="quote">${p}</p>`).join('')}
+    <div class="rd-fx">${EN.INTRO.how}</div><button class="btn" id="entOk">Ich halte sie auf</button>`, false);
+  $('entOk').onclick = closeModal;
+}
+
+// ── V6.2: Boss-Kämpfe ─────────────────────────────────────────
+// Weiß leuchtende Schwachpunkte (10 Schaden) antippen, sonst überall tippen (1 Schaden). Ein verpasster Schwachpunkt heilt den Boss.
+function runBoss(key) {
+  return new Promise((res) => {
+    const def = EN.BOSSES[key]; if (!def) { res(); return; }
+    bossRes = res;
+    world.startBoss({ ...def, key, hp: EN.bossHP(def, S.entropy) });
+    document.body.classList.add('moment');
+    const bar = $('bossBar'); bar.classList.remove('hidden'); bar.style.setProperty('--c', def.color);
+    bar.querySelector('b').textContent = def.name; bar.querySelector('p').textContent = def.intro;
+    bossSnd = music.riser(def.dur - 1);
+    music.boom(true); vibrate([60, 40, 160]); world.doFlash(def.color, 0.6); world.shake = 1.2;
+    say([def.intro], 'plural');
+  });
+}
+function updateBoss(m) {
+  const bar = $('bossBar');
+  bar.querySelector('.hp i').style.width = `${Math.max(0, m.hp / m.hpMax) * 100}%`;
+  bar.querySelector('.bar i').style.width = `${Math.max(0, 1 - m.t / m.dur) * 100}%`;
+  if (m.t > 3.5 && m.t < 5.5) bar.querySelector('p').textContent = 'Tippe die weißen Schwachpunkte!';
+  if (m.t >= 5.5) bar.querySelector('p').textContent = `${Math.ceil(m.dur - m.t)} s`;
+  if (m.waveT >= 0 && m.waveT < 0.05) vibrate([30, 30, 60]);
+  if (m.done || m.failed) endBoss(m.done);
+}
+function endBoss(win) {
+  const m = world.moment; world.moment = null;
+  bossSnd && bossSnd.stop(); bossSnd = null;
+  $('bossBar').classList.add('hidden'); document.body.classList.remove('moment');
+  const r = EN.bossResult(S, m.key, win, E.prodPerSec(S));
+  S.entropy = r.entropy; entStage = EN.entStage(S.entropy); S.bossWins += r.wins; S.acts.kraft += r.acts;
+  if (r.gain) E.earn(S, r.gain);
+  if (r.loss) S.complexity = Math.max(0, S.complexity * (1 - r.loss));
+  if (r.buff) S.buffs.push({ id: 'boss', n: r.buff.n, k: r.buff.k, m: r.buff.m, t: r.buff.dur });
+  world.cracks = [];
+  const col = win ? m.color : '#ff6b81';
+  music.boom(true); vibrate(win ? [40, 40, 40, 40, 160] : [200, 60, 200]);
+  world.doFlash(win ? '#ffffff' : '#2a0a4a', win ? 1 : 0.9); world.shake = win ? 0.8 : 1.5;
+  if (win) world.burst(world.cx, world.cy, col, 90, 2.2);
+  world.floater(world.cx, world.cy - 40, win ? `+${fmt(r.gain)} ✦` : (r.loss ? `−${Math.round(r.loss * 100)} %` : 'Entropie +25 %'), col);
+  addTimeline(`${win ? 'Sieg' : 'Niederlage'}: <b>${m.name}</b><small>${win ? m.win : m.lose}</small>`, 'choice', col);
+  say([win ? m.win : m.lose], 'plural');
+  updateHud(); updateBuffs(); save();
+  const res = bossRes; bossRes = null; res && res();
+}
 
 // ── V6.1: Rückblick-Film vor dem Urknall ──────────────────────
 async function playFilm() {
@@ -915,7 +1027,7 @@ function syncRelics() {
 }
 function collectRelic(id) {
   const o = AVATAR_OPTS[id], leg = [...S.legacy].reverse().find((l) => l.id === id);
-  S.relics.push(id);
+  S.relics.push(id); EN.relief(S, 'relic');
   world.relics = world.relics.filter((r) => r.id !== id);
   music.fragment(); vibrate([15, 30, 15]); world.doFlash('#ffb347', 0.35);
   world.burst(world.cx, world.cy, '#ffb347', 40, 1.5);
@@ -984,6 +1096,7 @@ function loop(now) {
     tickAvatarCd(dt);
     if (S.paradox > 0) S.paradox = Math.max(0, S.paradox - E.TUNING.paradoxDecay * dt);
     if (S.buffs.length) { for (const b of S.buffs) b.t -= dt; const n = S.buffs.length; S.buffs = S.buffs.filter((b) => b.t > 0); if (S.buffs.length !== n) updateBuffs(); }
+    if (entOn() && !world.moment && !cinematic) updateEntropy(dt);
     if (cosmic) updateCosmic(dt);
     else if (COSMOS_ON && !cinematic && !modalOpen() && !world.moment && S.epoch >= 1 && !S.pendingEvent && !S.pendingTrait && !S.pendingAvatar) {
       nextCosmic -= dt;
@@ -994,7 +1107,7 @@ function loop(now) {
       if (nextMut <= 0 && !world.mutation) { world.spawnMutation(E.mutationLife(S)); nextMut = E.mutationInterval(S); }
     }
     uiT += dt; saveT += dt;
-    if (uiT > 0.2) { uiT = 0; updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
+    if (uiT > 0.2) { uiT = 0; updateEntropyHud(); updateHud(); updateResonance(); updateDock(); updateParadox(); checkQueue(); if (S.buffs.length) updateBuffs(); if (tab === 'evo') { updateGenList(); renderLeap(); } if (!cinematic && !modalOpen() && !world.moment) checkInEpochEvents(); }
     if (saveT > 10) { saveT = 0; save(); }
     // Fragmente & Stimme
     if (!cinematic && !modalOpen() && !world.moment) {
@@ -1206,11 +1319,12 @@ async function bigBang(k, intent) {
     fragments: S.fragments, constants: k, intent, timeline: S.timeline,
     settings: S.settings, voiceEntered: S.voiceEntered, introSeen: true,
     letters: S.letters, letterChoices: S.letterChoices, ethik: S.ethik, lastLaw: S.law,
-    pantheon: S.pantheon, endings: S.endings, chronik: [...S.chronik, chronikEntry()],
+    pantheon: S.pantheon, endings: S.endings, bossWins: S.bossWins, entIntro: S.entIntro, chronik: [...S.chronik, chronikEntry()],
     akt: S.universe + 1 >= 155 ? 2 : S.akt, a2: S.a2,
     legacy: [...S.legacy, ...S.avatars.map((id) => ({ u: S.universe, id }))],   // V3: Avatare werden zu Relikten
   };
   S = Object.assign(E.newState(), keep);
+  entStage = 0; world.cracks = [];
   save();
   ov.classList.remove('hidden');
   ov.innerHTML = `<div class="cine">Diesmal war jemand da.</div><div class="title">UNIVERSUM ${S.universe}</div>`;
@@ -1236,6 +1350,7 @@ document.addEventListener('visibilitychange', () => {
     else if (running && away > 30 && !S.finished) {
       const gain = E.prodPerSec(S) * away * E.offlineEfficiency(S);
       E.earn(S, gain); tickAvatarCd(away);
+      if (entOn() && S.entIntro) { EN.offline(S, away); entStage = EN.entStage(S.entropy); }
       world.floater(world.cx, world.cy, `+${fmt(gain)} ✦ (offline)`, '#fff3b0');
     }
     S.lastSeen = Date.now();
@@ -1268,7 +1383,7 @@ const A2 = createAkt2({ getS: () => S, save, $, onTap, openModal, closeModal, mo
   const away = Math.min((Date.now() - S.lastSeen) / 1000, E.offlineCapSec(S));
   let offline = 0;
   const rawAway = (Date.now() - S.lastSeen) / 1000;
-  if (S.akt !== 2 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); }
+  if (S.akt !== 2 && !S.finished && away > 30) { offline = E.prodPerSec(S) * away * E.offlineEfficiency(S); E.earn(S, offline); tickAvatarCd(away); if (entOn() && S.entIntro) { EN.offline(S, away); entStage = EN.entStage(S.entropy); } }
   world.mode = 'play'; world.setEpoch(S.epoch); world.z = S.epoch;
   refreshStatic();
   try { const raw = localStorage.getItem(SAVE_KEY); if (raw) takeSnapshot(JSON.parse(raw)); } catch { /* */ }   // V6: täglicher Schnappschuss
@@ -1299,6 +1414,9 @@ if (location.search.includes('dev')) {
     queue: checkQueue,
     A2,
     film: playFilm,
+    EN,
+    runBoss,
+    get world() { return world; },
     startCosmic(id) { startCosmic(KO.COSMOS.find((c) => c.id === id) || KO.COSMOS[0]); },
     endCosmic,
     get cosmic() { return cosmic; },

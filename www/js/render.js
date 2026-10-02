@@ -4,6 +4,7 @@
 //  liegt als winziges Detail im Zentrum der nächsten.
 // ─────────────────────────────────────────────────────────────
 import { EPOCHS } from './data.js';
+import { BOSS_DMG, BOSS_HEAL } from './entropie.js';
 
 const TAU = Math.PI * 2;
 const rng = (seed) => () => {
@@ -41,6 +42,8 @@ export class World {
     this.mutation = null;   // V2: leuchtender Mutations-Glimmer
     this.relics = [];       // V3: Relikte {id, e, x, y}, sichtbar nur auf ihrer Zoom-Ebene
     this.moment = null;     // V3: aktiver Epochen-Moment
+    this.cracks = [];       // V6.2: Risse der Entropie
+    this.entropy = 0;       // V6.2: 0–1, Ausbleichen der Welt
     this.touches = [];      // aktuelle Fingerpositionen (von main.js gesetzt)
     this.mode = 'play';   // play | void | converge | bang
     this.converge = 0;
@@ -178,6 +181,132 @@ export class World {
     return null;
   }
 
+  // ── V6.2: Risse der Entropie ─────────────────────────────────
+  spawnCrack() {
+    const { w, h } = this;
+    this.cracks.push({ x: 50 + Math.random() * (w - 100), y: 190 + Math.random() * (h * 0.56 - 190), ph: Math.random() * 6, seed: Math.random() * 100, born: this.t });
+  }
+  hitCrack(x, y) {
+    for (const c of this.cracks) if (Math.hypot(x - c.x, y - c.y) < 40) { this.cracks = this.cracks.filter((k) => k !== c); this.burst(c.x, c.y, '#b58cff', 34, 1.5); return c; }
+    return null;
+  }
+  _drawCracks() {
+    const g = this.g, t = this.t;
+    g.save();
+    for (const c of this.cracks) {
+      const grow = Math.min(1, (t - c.born) / 1.2), p = 1 + Math.sin(t * 3 + c.ph) * 0.12;
+      g.globalCompositeOperation = 'source-over';
+      const gr = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, 54 * p);
+      gr.addColorStop(0, 'rgba(5,0,14,.85)'); gr.addColorStop(0.55, 'rgba(60,10,110,.4)'); gr.addColorStop(1, 'rgba(60,10,110,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(c.x, c.y, 54 * p, 0, TAU); g.fill();
+      g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * TAU + Math.sin(c.seed + i * 3.1) * 0.5, L = (14 + ((c.seed * (i + 3)) % 22)) * grow * p;
+        const mx = c.x + Math.cos(a) * L * 0.5 + Math.sin(a * 5 + c.seed) * 3, my = c.y + Math.sin(a) * L * 0.5 + Math.cos(a * 5 + c.seed) * 3;
+        g.strokeStyle = 'rgba(160,100,255,.8)'; g.lineWidth = 2.2;
+        g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(mx, my); g.lineTo(c.x + Math.cos(a) * L, c.y + Math.sin(a) * L); g.stroke();
+      }
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(c.x, c.y, 3.5 * p, 0, TAU); g.fill();
+    }
+    g.restore();
+  }
+  // Ausbleichen: dunkle Ränder und kriechende Ranken, stärker mit der Entropie
+  _drawEntropy() {
+    const g = this.g, f = this.entropy, w = this.w, h = this.h, t = this.t;
+    if (f < 0.08) return;
+    g.save(); g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const vg = g.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * (0.8 - 0.55 * f), w / 2, h * 0.45, Math.max(w, h) * 0.75);
+    vg.addColorStop(0, 'rgba(8,0,20,0)'); vg.addColorStop(1, `rgba(8,0,20,${0.3 + 0.62 * f})`);
+    g.fillStyle = vg; g.fillRect(0, 0, w, h);
+    if (f > 0.25) {
+      const n = 11, R = Math.hypot(w, h) / 2, L0 = (0.22 + 0.7 * f) * Math.min(w, h);
+      g.fillStyle = `rgba(6,0,14,${0.35 + 0.35 * f})`;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + 0.4, wob = 0.75 + 0.25 * Math.sin(t * 0.6 + i * 1.7);
+        const bx = w / 2 + Math.cos(a) * R, by = h * 0.45 + Math.sin(a) * R, L = L0 * wob * (1.1 + Math.sin(i * 2.3) * 0.35);
+        const tx = bx - Math.cos(a) * (R * 0.55 + L * -0.2) , ty = by - Math.sin(a) * (R * 0.55 + L * -0.2);
+        const ex = bx + (tx - bx) * Math.min(1, L / (R * 0.55)), ey = by + (ty - by) * Math.min(1, L / (R * 0.55));
+        const nx = -Math.sin(a), ny = Math.cos(a), wd = 26 + 40 * f;
+        g.beginPath(); g.moveTo(bx + nx * wd * 2, by + ny * wd * 2);
+        g.quadraticCurveTo((bx + ex) / 2 + nx * wd * 0.6 * Math.sin(t + i), (by + ey) / 2 + ny * wd * 0.6 * Math.sin(t + i), ex, ey);
+        g.quadraticCurveTo((bx + ex) / 2 - nx * wd * 0.6, (by + ey) / 2 - ny * wd * 0.6, bx - nx * wd * 2, by - ny * wd * 2);
+        g.closePath(); g.fill();
+      }
+    }
+    g.restore();
+  }
+
+  // ── V6.2: Boss-Kampf ─────────────────────────────────────────
+  startBoss(def) {
+    const { w, h } = this;
+    this.moment = { ...def, kind: 'boss', cx: w / 2, cy: h * 0.38, hpMax: def.hp, t: 0, weaks: [], nextWeak: 0.9, wave: 3, waveT: -1, hits: 0, weakHits: 0, misses: 0, hurt: 0, done: false, failed: false };
+  }
+  _hitBoss(m, x, y) {
+    for (const wk of m.weaks) {
+      if (Math.hypot(x - wk.x, y - wk.y) < 38) {
+        m.weaks = m.weaks.filter((k) => k !== wk); m.hp -= BOSS_DMG.weak; m.weakHits++; m.hurt = 1;
+        this.burst(wk.x, wk.y, '#ffffff', 36, 1.8); this.doFlash(m.color, 0.18); this.shake = Math.max(this.shake, 0.5);
+        if (m.hp <= 0) m.done = true;
+        return 'weak';
+      }
+    }
+    m.hp -= BOSS_DMG.tap; m.hits++; m.hurt = Math.max(m.hurt, 0.5);
+    this.burst(x, y, m.color, 6, 0.9);
+    if (m.hp <= 0) m.done = true;
+    return 'tap';
+  }
+  _updateBoss(dt) {
+    const m = this.moment, { w, h } = this;
+    m.t += dt; m.hurt = Math.max(0, m.hurt - dt * 3);
+    m.nextWeak -= dt;
+    if (m.nextWeak <= 0 && m.weaks.length < 2) {
+      const a = Math.random() * TAU, R = 105 + Math.random() * 55;
+      m.weaks.push({ x: clamp(m.cx + Math.cos(a) * R, 46, w - 46), y: clamp(m.cy + Math.sin(a) * R, 170, h * 0.64), life: 2.3, max: 2.3 });
+      m.nextWeak = m.weakEvery * (0.8 + Math.random() * 0.4);
+    }
+    for (const wk of m.weaks) wk.life -= dt;
+    const gone = m.weaks.filter((k) => k.life <= 0);
+    if (gone.length) {
+      m.weaks = m.weaks.filter((k) => k.life > 0);
+      for (const k of gone) { m.misses++; m.hp = Math.min(m.hpMax, m.hp + BOSS_HEAL); this.burst(k.x, k.y, '#ff4d6a', 14, 1); this.shake = Math.max(this.shake, 0.9); this.flashColor = '#ff4d6a'; this.flash = Math.max(this.flash, 0.22); m.hurtP = 1; }
+    }
+    m.wave -= dt; if (m.wave <= 0) { m.wave = 4.5; m.waveT = 0; this.shake = Math.max(this.shake, 0.55); }
+    if (m.waveT >= 0) { m.waveT += dt; if (m.waveT > 1.3) m.waveT = -1; }
+    if (m.hp <= 0) m.done = true;
+    else if (m.t >= m.dur) m.failed = true;
+  }
+  _drawBoss() {
+    const g = this.g, m = this.moment, t = this.t, c = m.color, { w, h } = this;
+    g.save();
+    g.fillStyle = `rgba(4,0,12,${0.68 + 0.1 * Math.sin(t * 2)})`; g.fillRect(0, 0, w, h);
+    const frac = Math.max(0, m.hp / m.hpMax), pr = 66 * (0.92 + 0.08 * Math.sin(t * (4 + (1 - frac) * 6))) * (0.55 + 0.45 * frac + m.hurt * 0.12);
+    g.globalCompositeOperation = 'lighter';
+    this._halo(g, m.cx, m.cy, pr * 3.2, c, 0.45 + m.hurt * 0.3);
+    g.globalCompositeOperation = 'source-over';
+    g.fillStyle = '#05010c'; g.beginPath(); g.arc(m.cx, m.cy, pr, 0, TAU); g.fill();
+    g.lineWidth = 3; g.strokeStyle = hexA(c, 0.9); g.beginPath(); g.arc(m.cx, m.cy, pr, 0, TAU); g.stroke();
+    // Risse im Kern: je weniger Leben, desto mehr leuchtendes Weiß bricht heraus
+    g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+    const nc = Math.floor((1 - frac) * 12);
+    for (let i = 0; i < nc; i++) {
+      const a = i * 2.399 + 0.5, L = pr * (0.5 + 0.5 * ((i * 37) % 10) / 10);
+      g.strokeStyle = `rgba(255,255,255,${0.5 + 0.4 * Math.sin(t * 6 + i)})`; g.lineWidth = 2;
+      g.beginPath(); g.moveTo(m.cx, m.cy); g.lineTo(m.cx + Math.cos(a) * L * 0.55 + Math.sin(a * 4) * 4, m.cy + Math.sin(a) * L * 0.55 + Math.cos(a * 4) * 4); g.lineTo(m.cx + Math.cos(a) * L, m.cy + Math.sin(a) * L); g.stroke();
+    }
+    if (m.waveT >= 0) {
+      const k = m.waveT / 1.3; g.strokeStyle = hexA(c, (1 - k) * 0.8); g.lineWidth = 4 + 10 * (1 - k);
+      g.beginPath(); g.arc(m.cx, m.cy, pr + k * Math.max(w, h) * 0.6, 0, TAU); g.stroke();
+    }
+    for (const wk of m.weaks) {
+      const f = wk.life / wk.max, urgent = f < 0.35;
+      this._halo(g, wk.x, wk.y, 54, urgent ? '#ff4d6a' : '#ffffff', 0.5);
+      g.strokeStyle = urgent ? '#ff4d6a' : '#ffffff'; g.lineWidth = 3; g.beginPath(); g.arc(wk.x, wk.y, 26, 0, TAU); g.stroke();
+      g.lineWidth = 5; g.beginPath(); g.arc(wk.x, wk.y, 34, -Math.PI / 2, -Math.PI / 2 + TAU * f); g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(wk.x, wk.y, 5, 0, TAU); g.fill();
+    }
+    g.restore();
+  }
+
   // ── Epochen-Momente ──────────────────────────────────────────
   startMoment(def) {
     const { w, h } = this, items = [];
@@ -197,6 +326,7 @@ export class World {
   }
   hitMoment(x, y) {
     const m = this.moment; if (!m || m.done || m.failed) return false;
+    if (m.kind === 'boss') { this._hitBoss(m, x, y); return true; }
     for (const it of m.items) {
       if (m.kind === 'collect' && it.alive && Math.hypot(x - it.x, y - it.y) < it.r + 16) {
         it.alive = false; m.left--; this.burst(it.x, it.y, m.color, 26, 1.3);
@@ -209,6 +339,7 @@ export class World {
   }
   _updateMoment(dt) {
     const m = this.moment; if (!m || m.done || m.failed) return;
+    if (m.kind === 'boss') { this._updateBoss(dt); return; }
     m.t += dt;
     if (m.kind === 'collect') {
       for (const it of m.items) if (it.alive && m.moving) {
@@ -225,6 +356,7 @@ export class World {
     if (!m.done && m.t >= m.dur) m.failed = true;
   }
   _drawMoment() {
+    if (this.moment.kind === 'boss') { this._drawBoss(); return; }
     const g = this.g, m = this.moment, t = this.t, c = m.color;
     g.save(); g.globalCompositeOperation = 'lighter';
     for (const it of m.items) {
@@ -304,6 +436,8 @@ export class World {
       g.fillStyle = f.c; g.fillText(f.text, f.x, f.y);
     }
     g.globalAlpha = 1;
+    if (this.entropy > 0 && this.mode === 'play') this._drawEntropy();
+    if (this.cracks.length) this._drawCracks();
     if (this.glitch) this._drawGlitch();
     if (this.mutation) this._drawMutation();
     if (this.relics.length) this._drawRelics();

@@ -35,6 +35,9 @@ export class Soundtrack {
     this.nextTime = 0;
   }
 
+  // V6.2: f = 0 (klar) … 1 (Entropie am Anschlag, dumpf)
+  setEntropy(f) { if (this.lp) this.lp.frequency.setTargetAtTime(20000 * Math.pow(1 - 0.94 * Math.min(1, Math.max(0, f)), 3) + 600, this.ctx.currentTime, 0.8); }
+
   // Muss aus einer Nutzergeste heraus aufgerufen werden
   start() {
     if (this.ctx) { this.resume(); return; }
@@ -48,7 +51,8 @@ export class Soundtrack {
 
     this.music = ctx.createGain(); this.music.gain.value = this.musicOn ? 1 : 0;
     this.sfx = ctx.createGain(); this.sfx.gain.value = this.sfxOn ? 0.7 : 0;
-    this.music.connect(this.master); this.sfx.connect(this.master);
+    this.lp = ctx.createBiquadFilter(); this.lp.type = 'lowpass'; this.lp.frequency.value = 20000; this.lp.Q.value = 0.5;   // V6.2: Entropie dämpft die Musik
+    this.music.connect(this.lp).connect(this.master); this.sfx.connect(this.master);
 
     // Hall (generierte Impulsantwort) & Echo
     this.reverb = ctx.createConvolver();
